@@ -5,6 +5,7 @@ const preferenceKey = "stelvio-portfolio-preferences-v1";
 
 let sourceProjects = [];
 let projects = [];
+let publishedPreferences = {};
 let homeIndex = 0;
 let photoIndex = 0;
 let activeCity = "All";
@@ -31,8 +32,7 @@ function readPreferences() {
   }
 }
 
-function applyPreferences(data) {
-  const preferences = readPreferences();
+function applyPreferenceSet(data, preferences = {}) {
   const bySlug = new Map(data.map((project) => [project.slug, project]));
   const ordered = [];
 
@@ -51,6 +51,10 @@ function applyPreferences(data) {
       ? { ...project, coverSrc: selected.src, coverWidth: selected.width, coverHeight: selected.height }
       : { ...project };
   });
+}
+
+function applyPreferences(data) {
+  return applyPreferenceSet(applyPreferenceSet(data, publishedPreferences), readPreferences());
 }
 
 const route = () => {
@@ -410,12 +414,17 @@ window.addEventListener("keydown", (event) => {
   }
 });
 
-fetch("assets/portfolio-data-v2.json?v=20260806-4")
-  .then((response) => {
-    if (!response.ok) throw new Error(`Portfolio data returned ${response.status}`);
-    return response.json();
+Promise.all([
+  fetch("assets/portfolio-data-v2.json?v=20260806-5"),
+  fetch("assets/portfolio-preferences.json?v=20260806-5"),
+])
+  .then(async ([dataResponse, preferencesResponse]) => {
+    if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
+    if (!preferencesResponse.ok) throw new Error(`Portfolio preferences returned ${preferencesResponse.status}`);
+    return [await dataResponse.json(), await preferencesResponse.json()];
   })
-  .then((data) => {
+  .then(([data, preferences]) => {
+    publishedPreferences = preferences;
     sourceProjects = data;
     projects = applyPreferences(data);
     render();

@@ -62,6 +62,25 @@ function selectedCover(project) {
   };
 }
 
+function applyPreferenceSet(data, preferences = {}) {
+  const bySlug = new Map(data.map((project) => [project.slug, project]));
+  const arranged = [];
+  (preferences.order || []).forEach((slug) => {
+    const project = bySlug.get(slug);
+    if (project) {
+      arranged.push(project);
+      bySlug.delete(slug);
+    }
+  });
+  arranged.push(...bySlug.values());
+  return arranged.map((project) => {
+    const selected = project.images.find((image) => image.src === preferences.covers?.[project.slug]);
+    return selected
+      ? { ...project, coverSrc: selected.src, coverWidth: selected.width, coverHeight: selected.height }
+      : project;
+  });
+}
+
 function coverLabel(project) {
   const index = project.images.findIndex((image) => image.src === covers[project.slug]);
   return index === -1 ? "Current cover" : `Photograph ${pad(index + 1)}`;
@@ -220,13 +239,17 @@ document.querySelector("#reset-choices").addEventListener("click", () => {
   render();
 });
 
-fetch("assets/portfolio-data-v2.json?v=20260806-4")
-  .then((response) => {
-    if (!response.ok) throw new Error(`Portfolio data returned ${response.status}`);
-    return response.json();
+Promise.all([
+  fetch("assets/portfolio-data-v2.json?v=20260806-5"),
+  fetch("assets/portfolio-preferences.json?v=20260806-5"),
+])
+  .then(async ([dataResponse, preferencesResponse]) => {
+    if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
+    if (!preferencesResponse.ok) throw new Error(`Portfolio preferences returned ${preferencesResponse.status}`);
+    return [await dataResponse.json(), await preferencesResponse.json()];
   })
-  .then((data) => {
-    projects = data;
+  .then(([data, publishedPreferences]) => {
+    projects = applyPreferenceSet(data, publishedPreferences);
     const preferences = readPreferences();
     const validSlugs = new Set(projects.map((project) => project.slug));
     order = (preferences.order || []).filter((slug) => validSlugs.has(slug));
