@@ -1,0 +1,9 @@
+{
+  "name": "jiang-ruiqi-architecture-portfolio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Architectural photography portfolio for Jiang Ruiqi.",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

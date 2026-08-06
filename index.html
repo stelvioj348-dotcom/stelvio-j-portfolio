@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f7f7f5" />
+    <meta
+      name="description"
+      content="Stelvio J — architectural photography portfolio."
+    />
+    <title>Stelvio J — Architecture</title>
+    <link rel="preload" href="assets/portfolio-data.json" as="fetch" crossorigin="anonymous" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <header class="site-header" id="site-header">
+      <a class="brand" href="#" aria-label="Stelvio J — all projects">Stelvio J</a>
+      <nav class="city-nav" id="city-nav" aria-label="Filter projects by city"></nav>
+    </header>
+
+    <main id="app" tabindex="-1">
+      <p class="loading" role="status">Loading projects…</p>
+    </main>
+
+    <noscript>
+      <p class="noscript">This portfolio requires JavaScript to display the project archive.</p>
+    </noscript>
+  </body>
+</html>

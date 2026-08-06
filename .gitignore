@@ -1,0 +1,14 @@
+# Publish only the browser-ready portfolio, not the raw source-photo folders.
+/*
+!.gitignore
+!.nojekyll
+!.github/
+!.github/**
+!assets/
+!assets/**
+!app.js
+!index.html
+!package.json
+!README.md
+!server.js
+!styles.css
