@@ -297,7 +297,7 @@
     "slug": "sifang-art-museum",
     "title": "Sifang Art Museum",
     "city": "Nanjing",
-    "architect": "Steven Holl Architects",
+    "architect": "Steven Holl Architects and other architects",
     "span": 4,
     "description": "A hovering gallery volume turns toward the distant city above a dark concrete base. The museum’s shifting perspective connects close woodland, water and the skyline beyond.",
     "index": 6,
@@ -390,7 +390,7 @@
         "sourceFile": "2024-08-04 153319.jpg"
       },
       {
-        "src": "assets/projects/national-museum-of-western-art/03.webp",
+        "src": "assets/projects/national-museum-of-western-art/03-r2.webp",
         "width": 2400,
         "height": 1591,
         "alt": "National Museum of Western Art — photograph 3",
@@ -955,7 +955,7 @@
     "slug": "start-museum",
     "title": "Start Museum",
     "city": "Shanghai",
-    "architect": "Atelier Deshaus",
+    "architect": "Jean Nouvel",
     "span": 3,
     "description": "An industrial structure on the former railway site is retained and adapted as a contemporary art museum. Long platforms, cranes and new galleries preserve the memory of movement along the riverfront.",
     "index": 14,

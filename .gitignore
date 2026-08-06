@@ -7,6 +7,9 @@
 !assets/
 !assets/**
 !app.js
+!editor.css
+!editor.html
+!editor.js
 !index.html
 !package.json
 !README.md
