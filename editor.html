@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f7f7f5" />
+    <meta name="description" content="Choose project covers and arrange the Stelvio J portfolio." />
+    <title>Edit Covers & Order — Stelvio J</title>
+    <link rel="stylesheet" href="editor.css?v=20260806-5" />
+    <script src="editor.js?v=20260806-5" defer></script>
+  </head>
+  <body>
+    <header class="editor-header">
+      <div>
+        <a class="editor-brand" href="index.html">Stelvio J</a>
+        <h1>Edit Covers & Order</h1>
+      </div>
+      <nav aria-label="Editor actions">
+        <a href="index.html#projects">View projects</a>
+        <button type="button" id="copy-choices">Copy choices</button>
+        <button type="button" id="download-choices">Download JSON</button>
+        <button type="button" id="reset-choices">Reset</button>
+      </nav>
+    </header>
+
+    <main>
+      <section class="editor-intro" aria-labelledby="editor-help">
+        <h2 id="editor-help">Arrange all 35 projects and choose one cover for each.</h2>
+        <p>Drag projects or use the arrow buttons to change their order. Choose Cover opens every photograph in that project. Changes are saved in this browser and immediately affect the portfolio on this device.</p>
+        <p>When finished, copy or download the choices and send them back to publish the same order and covers for every visitor.</p>
+        <p class="editor-status" id="editor-status" aria-live="polite"></p>
+      </section>
+      <section class="editor-grid" id="editor-grid" aria-label="Project order"></section>
+    </main>
+
+    <dialog class="cover-dialog" id="cover-dialog">
+      <header>
+        <div>
+          <p>Choose cover</p>
+          <h2 id="cover-dialog-title"></h2>
+        </div>
+        <button type="button" id="close-dialog" aria-label="Close cover chooser">Close</button>
+      </header>
+      <div class="cover-options" id="cover-options"></div>
+    </dialog>
+
+    <noscript><p class="noscript">JavaScript is required to use the portfolio editor.</p></noscript>
+  </body>
+</html>
