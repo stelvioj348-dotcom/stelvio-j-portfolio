@@ -50,6 +50,42 @@ const escapeHtml = (value) =>
 
 const pad = (value) => String(value).padStart(2, "0");
 
+const architectWebsiteRules = [
+  ["Amateur Architecture Studio", "https://www.amarch.cc/"],
+  ["Atelier X", "http://atelier-xuk.com/"],
+  ["Atelier Deshaus", "https://www.deshaus.com/"],
+  ["Atelier FCJZ", "https://www.fcjz.com/"],
+  ["Ateliers Jean Nouvel", "https://www.jeannouvel.com/"],
+  ["Jean Nouvel", "https://www.jeannouvel.com/"],
+  ["azLa", "https://www.azlarchitects.com/"],
+  ["BIG", "https://big.dk/"],
+  ["Delugan Meissl", "https://www.dmaa.at/"],
+  ["Pei Cobb Freed", "https://www.pcf-p.com/"],
+  ["Integrated Design Associates", "http://www.ida-hk.com/"],
+  ["Jiakun Architects", "https://www.jiakun.com/"],
+  ["Junya Ishigami", "https://jnyi.jp/"],
+  ["Kengo Kuma", "https://kkaa.co.jp/"],
+  ["Le Corbusier", "https://www.fondationlecorbusier.fr/"],
+  ["OMA", "https://www.oma.com/"],
+  ["Perkins&Will", "https://perkinswill.com/"],
+  ["Renzo Piano", "https://www.rpbw.com/"],
+  ["Riken Yamamoto", "https://riken-yamamoto.co.jp/"],
+  ["SANAA", "https://www.sanaa.co.jp/"],
+  ["SelgasCano", "http://www.selgascano.net/"],
+  ["Sou Fujimoto", "https://www.sou-fujimoto.net/"],
+  ["Steven Holl", "https://www.stevenholl.com/"],
+  ["Tadao Ando", "https://www.tadao-ando.com/"],
+  ["Zaha Hadid", "https://www.zha.com/"],
+];
+
+function architectCredit(name) {
+  const website = architectWebsiteRules.find(([label]) => name.includes(label))?.[1];
+  const credit = escapeHtml(name);
+  return website
+    ? `<a class="architect-link" href="${website}" target="_blank" rel="noreferrer">${credit}</a>`
+    : credit;
+}
+
 function readPreferences() {
   try {
     return JSON.parse(localStorage.getItem(preferenceKey)) || {};
@@ -171,6 +207,29 @@ function preloadAround(items, index, getSource, radius = 2) {
   preload(sources);
 }
 
+function syncHomePagingCues() {
+  const viewer = app.querySelector(".viewer--home");
+  if (!viewer) return;
+  if (!window.matchMedia("(max-width: 720px)").matches) {
+    viewer.style.removeProperty("--home-previous-cue-offset");
+    viewer.style.removeProperty("--home-next-cue-offset");
+    return;
+  }
+
+  const image = viewer.querySelector(".carousel-incoming .viewer-image")
+    || viewer.querySelector(".viewer-stage:not(.carousel-outgoing) .viewer-image")
+    || viewer.querySelector(".viewer-image");
+  if (!image) return;
+  const viewerRect = viewer.getBoundingClientRect();
+  const imageRect = image.getBoundingClientRect();
+  if (imageRect.width < 1) return;
+  const cueSize = 7;
+  const previousGap = Math.max(0, imageRect.left - viewerRect.left);
+  const nextGap = Math.max(0, viewerRect.right - imageRect.right);
+  viewer.style.setProperty("--home-previous-cue-offset", `${Math.max(3, (previousGap - cueSize) / 2)}px`);
+  viewer.style.setProperty("--home-next-cue-offset", `${Math.max(3, (nextGap - cueSize) / 2)}px`);
+}
+
 function projectImageFrame(image) {
   return `
     <div class="viewer-image-frame">
@@ -254,7 +313,7 @@ function landingStageMarkup(index) {
         <h1 id="project-title"><a href="#project/${project.slug}">${escapeHtml(project.title)}</a></h1>
         <dl class="project-meta">
           <dt>Architect</dt>
-          <dd>${escapeHtml(project.architect)}</dd>
+          <dd>${architectCredit(project.architect)}</dd>
           <dt>City</dt>
           <dd>${escapeHtml(project.city)}</dd>
           <dt>Photographed</dt>
@@ -291,6 +350,7 @@ function renderLanding() {
     </section>`;
 
   preloadAround(projects, homeIndex, (item) => item.coverSrc);
+  requestAnimationFrame(syncHomePagingCues);
   syncFullscreenControls();
 }
 
@@ -438,8 +498,10 @@ function renderContact() {
     <section class="profile-view contact-view" aria-labelledby="contact-title">
       <header class="profile-intro contact-intro">
         <p class="profile-kicker">Contact / Stelvio J</p>
-        <h1 id="contact-title">Jiang Ruiqi</h1>
-        <p class="profile-statement">For architecture, photography, and other enquiries.</p>
+        <div class="contact-identity">
+          <h1 id="contact-title">Jiang Ruiqi</h1>
+          <p class="profile-statement">For architecture, photography, and other enquiries.</p>
+        </div>
       </header>
       <dl class="contact-list">
         <div>
@@ -686,7 +748,7 @@ function renderProject(slug) {
           <h1 id="project-title">${escapeHtml(project.title)}</h1>
           <dl class="project-meta">
             <dt>Architect</dt>
-            <dd>${escapeHtml(project.architect)}</dd>
+            <dd>${architectCredit(project.architect)}</dd>
             <dt>City</dt>
             <dd>${escapeHtml(project.city)}</dd>
             <dt>Photographed</dt>
@@ -792,6 +854,7 @@ function moveHome(step) {
   viewer.classList.add("carousel-transition", "carousel-active");
   viewer.append(incoming);
   introduceCarouselLayer(incoming, incomingShift);
+  requestAnimationFrame(syncHomePagingCues);
 
   document.title = `${nextProject.title} — Stelvio J`;
   renderNav();
@@ -814,6 +877,7 @@ function moveHome(step) {
     homeTargetIndex = null;
     transitionLocked = false;
     preloadAround(projects, homeIndex, (item) => item.coverSrc);
+    syncHomePagingCues();
   };
   incoming.addEventListener("transitionend", finish, { once: true });
   window.setTimeout(finish, 1650);
@@ -960,6 +1024,14 @@ app.addEventListener("click", (event) => {
 app.addEventListener("dblclick", (event) => {
   if (route().view !== "project" || !event.target.closest(".viewer--project .viewer-image-frame")) return;
   openLightbox(photoTargetIndex ?? photoIndex, "project");
+});
+
+app.addEventListener("load", (event) => {
+  if (event.target.matches?.(".viewer--home .viewer-image")) syncHomePagingCues();
+}, true);
+
+app.addEventListener("animationend", (event) => {
+  if (event.target.matches?.(".viewer--home .viewer-image")) syncHomePagingCues();
 });
 
 app.addEventListener("wheel", (event) => {
@@ -1147,6 +1219,7 @@ brand.addEventListener("click", () => {
 });
 
 window.addEventListener("hashchange", render);
+window.addEventListener("resize", syncHomePagingCues);
 document.addEventListener("fullscreenchange", syncFullscreenControls);
 window.addEventListener("storage", (event) => {
   if (event.key !== preferenceKey) return;
@@ -1184,11 +1257,11 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-33"),
-  fetch("assets/portfolio-preferences.json?v=20260807-33"),
-  fetch("assets/about-gallery.json?v=20260807-33"),
-  fetch("assets/project-essays.json?v=20260807-33"),
-  fetch("assets/project-equipment.json?v=20260807-33"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-34"),
+  fetch("assets/portfolio-preferences.json?v=20260807-34"),
+  fetch("assets/about-gallery.json?v=20260807-34"),
+  fetch("assets/project-essays.json?v=20260807-34"),
+  fetch("assets/project-equipment.json?v=20260807-34"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
