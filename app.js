@@ -11,6 +11,8 @@ let publishedPreferences = {};
 let homeIndex = 0;
 let photoIndex = 0;
 let activeCity = "All";
+let activeArchiveFilter = { type: "all", value: "All" };
+let activeArchiveHref = "#projects";
 let activeProjectSlug = "";
 let direction = "next";
 let viewerGestureMoved = false;
@@ -50,6 +52,8 @@ let wheelLastStepTime = -Infinity;
 let homeAutoplayTimer = null;
 let homePointerIdleTimer = null;
 let lightboxClickTimer = null;
+let lightboxLastMouseDown = null;
+let lightboxSuppressPagingUntil = 0;
 let projectEntryPending = false;
 
 const wheelThreshold = 36;
@@ -188,16 +192,15 @@ function playManualRouteTransition() {
     document.body.append(arrival);
   } else {
     const targetRect = target.getBoundingClientRect();
-    const lineWidth = Math.max(targetRect.width, window.innerWidth - targetRect.left + 2);
     returnLine = document.createElement("span");
     returnLine.className = "blue-route-return-line";
     Object.assign(returnLine.style, {
       top: `${targetRect.top}px`,
       left: `${targetRect.left}px`,
-      width: `${lineWidth}px`,
+      width: `${targetRect.width}px`,
       height: `${targetRect.height}px`,
     });
-    returnLine.style.setProperty("--route-line-end-scale", String(targetRect.width / lineWidth));
+    returnLine.style.setProperty("--route-return-x", `${window.innerWidth - targetRect.left + targetRect.width + 20}px`);
     document.body.append(returnLine);
   }
 
@@ -391,8 +394,28 @@ function scheduleLightboxPage(step) {
   clearPendingLightboxClick();
   lightboxClickTimer = window.setTimeout(() => {
     lightboxClickTimer = null;
-    if (lightboxScale === 1) moveLightbox(step);
+    if (lightboxScale === 1 && performance.now() >= lightboxSuppressPagingUntil) moveLightbox(step);
   }, lightboxClickDelay);
+}
+
+function registerLightboxMouseDown(event) {
+  if (event.pointerType !== "mouse" || event.button !== 0) return;
+  const now = performance.now();
+  const isSecondPress = Boolean(
+    lightboxLastMouseDown
+    && now - lightboxLastMouseDown.time < 620
+    && Math.hypot(
+      event.clientX - lightboxLastMouseDown.x,
+      event.clientY - lightboxLastMouseDown.y,
+    ) < 42
+  );
+  if (isSecondPress) {
+    clearPendingLightboxClick();
+    lightboxSuppressPagingUntil = now + 520;
+    lightboxLastMouseDown = null;
+  } else {
+    lightboxLastMouseDown = { time: now, x: event.clientX, y: event.clientY };
+  }
 }
 
 function scheduleHomeAutoplay() {
@@ -465,12 +488,14 @@ const architectWebsiteRules = [
 ];
 
 function architectCredit(name, projectSlug = "") {
-  if (projectSlug === "huanglong-mountain-zisha-museum") return escapeHtml(name);
-  const website = architectWebsiteRules.find(([label]) => name.includes(label))?.[1];
+  const website = projectSlug === "huanglong-mountain-zisha-museum"
+    ? null
+    : architectWebsiteRules.find(([label]) => name.includes(label))?.[1];
   const credit = escapeHtml(name);
+  const indexLink = `<a class="meta-index-link" href="${filterHref("architect", name)}">${credit}</a>`;
   return website
-    ? `<a class="architect-link" href="${website}" target="_blank" rel="noreferrer">${credit}</a>`
-    : credit;
+    ? `${indexLink} <a class="architect-link" href="${website}" target="_blank" rel="noreferrer" aria-label="Open ${credit} official website">Official ↗</a>`
+    : indexLink;
 }
 
 function readPreferences() {
@@ -511,41 +536,110 @@ const route = () => {
   if (raw.startsWith("project/")) {
     return { view: "project", value: decodeURIComponent(raw.slice(8)) };
   }
-  if (raw === "projects") return { view: "archive", value: "All" };
+  if (raw === "projects") return { view: "archive", filterType: "all", value: "All" };
   if (raw === "about") return { view: "about", value: "All" };
   if (raw === "contact") return { view: "contact", value: "All" };
   if (raw.startsWith("city/")) {
-    return { view: "archive", value: decodeURIComponent(raw.slice(5)) };
+    return { view: "archive", filterType: "city", value: decodeURIComponent(raw.slice(5)) };
   }
+  if (raw.startsWith("year/")) return { view: "archive", filterType: "year", value: decodeURIComponent(raw.slice(5)) };
+  if (raw.startsWith("architect/")) return { view: "archive", filterType: "architect", value: decodeURIComponent(raw.slice(10)) };
+  if (raw.startsWith("camera/")) return { view: "archive", filterType: "camera", value: decodeURIComponent(raw.slice(7)) };
+  if (raw.startsWith("focal/")) return { view: "archive", filterType: "focal", value: decodeURIComponent(raw.slice(6)) };
   return { view: "landing", value: "All" };
 };
 
 const cityHref = (city) =>
   city === "All" ? "#projects" : `#city/${encodeURIComponent(city)}`;
 
-function visibleProjects(city = activeCity) {
-  return city === "All" ? projects : projects.filter((project) => project.city === city);
+const splitIndexedValues = (value) => String(value || "").split(/\s+\/\s+/).map((item) => item.trim()).filter(Boolean);
+const projectYears = (project) => String(project.shootingDate || "").match(/\d{4}/g) || [];
+
+function filterHref(type, value) {
+  if (type === "all" || value === "All") return "#projects";
+  return `#${type}/${encodeURIComponent(value)}`;
 }
 
-function renderNav(currentCity = null) {
-  const cities = [...new Set(projects.map((project) => project.city))].sort((a, b) =>
-    a.localeCompare(b, "en"),
-  );
-  const links = [
-    { label: "All", href: "#projects", current: currentCity === "All" },
-    ...cities.map((city) => ({
-      label: city,
-      href: cityHref(city),
-      current: city === currentCity,
-    })),
-  ];
+function visibleProjects(filter = activeArchiveFilter) {
+  if (!filter || filter.type === "all") return projects;
+  if (filter.type === "city") return projects.filter((project) => project.city === filter.value);
+  if (filter.type === "year") return projects.filter((project) => projectYears(project).includes(filter.value));
+  if (filter.type === "architect") return projects.filter((project) => project.architect === filter.value);
+  if (filter.type === "camera") return projects.filter((project) => splitIndexedValues(project.camera).includes(filter.value));
+  if (filter.type === "focal") return projects.filter((project) => splitIndexedValues(project.focalLength).includes(filter.value));
+  return projects;
+}
 
-  cityNav.innerHTML = links
-    .map(
-      (link) =>
-        `<a href="${link.href}" ${link.current ? 'aria-current="page"' : ""}>${escapeHtml(link.label)}</a>`,
-    )
-    .join("");
+function filterOptions(type) {
+  const values = type === "city"
+    ? projects.map((project) => project.city)
+    : type === "year"
+      ? projects.flatMap(projectYears)
+      : type === "architect"
+        ? projects.map((project) => project.architect)
+        : type === "camera"
+          ? projects.flatMap((project) => splitIndexedValues(project.camera))
+          : projects.flatMap((project) => splitIndexedValues(project.focalLength));
+  return [...new Set(values)].sort((a, b) => type === "year" ? b.localeCompare(a) : a.localeCompare(b, "en"));
+}
+
+function renderNav(currentType = null, currentValue = null) {
+  const groups = [
+    ["city", "City"],
+    ["year", "Year"],
+    ["architect", "Architect"],
+    ["camera", "Camera"],
+    ["focal", "Focal Length"],
+  ];
+  cityNav.innerHTML = `
+    <a class="nav-pill nav-pill--all" href="#projects" ${currentType === "all" ? 'aria-current="page"' : ""}>All</a>
+    ${groups.map(([type, label]) => `
+      <div class="nav-filter ${currentType === type ? "is-current" : ""}">
+        <button class="nav-pill nav-filter-toggle" type="button" data-filter-menu="${type}" aria-expanded="false">
+          ${escapeHtml(label)}
+        </button>
+        <div class="nav-filter-menu" data-filter-options="${type}" hidden>
+          ${filterOptions(type).map((value) => `
+            <a href="${filterHref(type, value)}" ${currentType === type && currentValue === value ? 'aria-current="page"' : ""}>${escapeHtml(value)}</a>
+          `).join("")}
+        </div>
+      </div>
+    `).join("")}`;
+}
+
+function closeFilterMenus(except = null) {
+  cityNav.querySelectorAll(".nav-filter-toggle").forEach((toggle) => {
+    if (toggle === except) return;
+    toggle.setAttribute("aria-expanded", "false");
+    const menu = toggle.parentElement?.querySelector(".nav-filter-menu");
+    if (menu) menu.hidden = true;
+  });
+}
+
+cityNav.addEventListener("click", (event) => {
+  const toggle = event.target.closest(".nav-filter-toggle");
+  if (!toggle) return;
+  event.preventDefault();
+  const menu = toggle.parentElement?.querySelector(".nav-filter-menu");
+  if (!menu) return;
+  const willOpen = menu.hidden;
+  closeFilterMenus(toggle);
+  menu.hidden = !willOpen;
+  toggle.setAttribute("aria-expanded", String(willOpen));
+});
+
+document.addEventListener("pointerdown", (event) => {
+  if (!event.target.closest("#city-nav")) closeFilterMenus();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeFilterMenus();
+});
+
+function indexedMetaLinks(type, value) {
+  const values = type === "year" ? (String(value).match(/\d{4}/g) || []) : splitIndexedValues(value);
+  const separator = type === "year" ? "–" : " / ";
+  return values.map((item) => `<a class="meta-index-link" href="${filterHref(type, item)}">${escapeHtml(item)}</a>`).join(separator);
 }
 
 function syncProfileNav(currentView) {
@@ -703,13 +797,13 @@ function landingStageMarkup(index) {
           <dt>Architect</dt>
           <dd>${architectCredit(project.architect, project.slug)}</dd>
           <dt>City</dt>
-          <dd>${escapeHtml(project.city)}</dd>
+          <dd>${indexedMetaLinks("city", project.city)}</dd>
           <dt>Photographed</dt>
-          <dd>${escapeHtml(project.shootingDate)}</dd>
+          <dd>${indexedMetaLinks("year", project.shootingDate)}</dd>
           <dt>Camera</dt>
-          <dd>${escapeHtml(project.camera)}</dd>
+          <dd>${indexedMetaLinks("camera", project.camera)}</dd>
           <dt>Focal Length</dt>
-          <dd>${escapeHtml(project.focalLength)}</dd>
+          <dd>${indexedMetaLinks("focal", project.focalLength)}</dd>
         </dl>
         <p class="project-description">${escapeHtml(project.description)}</p>
         <div class="viewer-caption-footer">
@@ -727,6 +821,8 @@ function landingStageMarkup(index) {
 function renderLanding() {
   homeIndex = ((homeIndex % projects.length) + projects.length) % projects.length;
   homeTargetIndex = null;
+  activeArchiveFilter = { type: "all", value: "All" };
+  activeArchiveHref = "#projects";
   const project = projects[homeIndex];
   document.body.dataset.view = "landing";
   document.title = `${project.title} — Stelvio J`;
@@ -747,14 +843,19 @@ function renderLanding() {
   scheduleHomeAutoplay();
 }
 
-function renderArchive(city = "All") {
-  const normalizedCity = projects.some((project) => project.city === city) ? city : "All";
-  activeCity = normalizedCity;
-  const visible = visibleProjects();
-
+function renderArchive(filterType = "all", value = "All") {
+  const validType = ["city", "year", "architect", "camera", "focal"].includes(filterType) ? filterType : "all";
+  const options = validType === "all" ? ["All"] : filterOptions(validType);
+  const normalizedValue = options.includes(value) ? value : "All";
+  const normalizedType = normalizedValue === "All" ? "all" : validType;
+  activeArchiveFilter = { type: normalizedType, value: normalizedValue };
+  activeArchiveHref = filterHref(normalizedType, normalizedValue);
+  if (normalizedType === "city") activeCity = normalizedValue;
+  const visible = visibleProjects(activeArchiveFilter);
+  const filterTitle = normalizedType === "all" ? "Projects" : normalizedValue;
   document.body.dataset.view = "archive";
-  document.title = `${normalizedCity === "All" ? "Projects" : normalizedCity} — Stelvio J`;
-  renderNav(normalizedCity);
+  document.title = `${filterTitle} — Stelvio J`;
+  renderNav(normalizedType, normalizedValue);
 
   const cards = visible
     .map(
@@ -780,7 +881,7 @@ function renderArchive(city = "All") {
   app.innerHTML = `
     <section class="archive-view" aria-labelledby="archive-title">
       <header class="archive-toolbar">
-        <h1 id="archive-title">${escapeHtml(normalizedCity === "All" ? "Projects" : normalizedCity)}</h1>
+        <h1 id="archive-title">${escapeHtml(filterTitle)}</h1>
         <span>${pad(visible.length)} projects</span>
       </header>
       <div class="archive-grid">${cards}</div>
@@ -1239,7 +1340,7 @@ function renderProject(slug) {
   const image = project.images[photoIndex];
   document.body.dataset.view = "project";
   document.title = `${project.title} — Stelvio J`;
-  renderNav(project.city);
+  renderNav("city", project.city);
 
   app.innerHTML = `
     <article class="viewer viewer--project is-${direction}" aria-labelledby="project-title">
@@ -1251,17 +1352,17 @@ function renderProject(slug) {
             <dt>Architect</dt>
             <dd>${architectCredit(project.architect, project.slug)}</dd>
             <dt>City</dt>
-            <dd>${escapeHtml(project.city)}</dd>
+            <dd>${indexedMetaLinks("city", project.city)}</dd>
             <dt>Photographed</dt>
-            <dd>${escapeHtml(project.shootingDate)}</dd>
+            <dd>${indexedMetaLinks("year", project.shootingDate)}</dd>
             <dt>Camera</dt>
-            <dd>${escapeHtml(project.camera)}</dd>
+            <dd>${indexedMetaLinks("camera", project.camera)}</dd>
             <dt>Focal Length</dt>
-            <dd>${escapeHtml(project.focalLength)}</dd>
+            <dd>${indexedMetaLinks("focal", project.focalLength)}</dd>
           </dl>
           <p class="project-description">${escapeHtml(project.description)}</p>
           <div class="viewer-caption-footer">
-            <a class="back-link" href="${cityHref(activeCity)}">
+            <a class="back-link" href="${activeArchiveHref}">
               <span class="back-link-label">← Projects</span>
               <span class="back-link-bg" aria-hidden="true"></span>
             </a>
@@ -1497,7 +1598,7 @@ function render() {
   }
   direction = "next";
   if (current.view === "project") renderProject(current.value);
-  else if (current.view === "archive") renderArchive(current.value);
+  else if (current.view === "archive") renderArchive(current.filterType, current.value);
   else if (current.view === "about") renderAbout();
   else if (current.view === "contact") renderContact();
   else renderLanding();
@@ -1541,7 +1642,7 @@ app.addEventListener("click", (event) => {
   if (["lightbox-previous", "lightbox-next"].includes(control.dataset.action)) {
     event.preventDefault();
     control.blur();
-    if (event.detail > 1) {
+    if (event.detail > 1 || performance.now() < lightboxSuppressPagingUntil) {
       clearPendingLightboxClick();
       return;
     }
@@ -1573,6 +1674,8 @@ app.addEventListener("dblclick", (event) => {
   if (!lightbox || lightbox.hidden || event.target.closest(".lightbox-close")) return;
   if (window.matchMedia("(pointer: coarse)").matches) return;
   clearPendingLightboxClick();
+  lightboxSuppressPagingUntil = performance.now() + 520;
+  lightboxLastMouseDown = null;
   if (!lightboxPointIsInsideImage(event.clientX, event.clientY)) return;
   event.preventDefault();
   toggleLightboxZoomAt(event.clientX, event.clientY);
@@ -1609,7 +1712,9 @@ app.addEventListener("wheel", (event) => {
 
 app.addEventListener("pointerdown", (event) => {
   const lightbox = event.target.closest(".lightbox");
-  if (!lightbox || lightbox.hidden || event.target.closest(".lightbox-close, .lightbox-arrow")) return;
+  if (!lightbox || lightbox.hidden) return;
+  registerLightboxMouseDown(event);
+  if (event.target.closest(".lightbox-close, .lightbox-arrow")) return;
   if (event.pointerType === "mouse" && event.button !== 0) return;
   if (lightboxScale > 1) event.preventDefault();
   lightboxPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -1949,13 +2054,13 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-72"),
-  fetch("assets/portfolio-preferences.json?v=20260807-72"),
-  fetch("assets/about-gallery.json?v=20260807-72"),
-  fetch("assets/project-essays.json?v=20260807-72"),
-  fetch("assets/project-equipment.json?v=20260807-72"),
-  fetch("assets/project-hq.json?v=20260807-72"),
-  fetch("assets/project-cover-images.json?v=20260807-72"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-73"),
+  fetch("assets/portfolio-preferences.json?v=20260807-73"),
+  fetch("assets/about-gallery.json?v=20260807-73"),
+  fetch("assets/project-essays.json?v=20260807-73"),
+  fetch("assets/project-equipment.json?v=20260807-73"),
+  fetch("assets/project-hq.json?v=20260807-73"),
+  fetch("assets/project-cover-images.json?v=20260807-73"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse, hqResponse, coversResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
