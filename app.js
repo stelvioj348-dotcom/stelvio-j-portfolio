@@ -13,13 +13,26 @@ let photoIndex = 0;
 let activeCity = "All";
 let activeProjectSlug = "";
 let direction = "next";
-let touchStartX = null;
+let viewerGestureMoved = false;
+let viewerPointerStart = null;
 let transitionLocked = false;
+let homeTargetIndex = null;
+let homeRequestToken = 0;
+let homeTransitionToken = 0;
+let photoTargetIndex = null;
+let photoRequestToken = 0;
+let photoTransitionToken = 0;
 let lightboxIndex = 0;
 let lightboxMode = "about";
 let lightboxLocked = false;
-let lightboxTouchStartX = null;
 let lightboxReturnFocus = null;
+let lightboxScale = 1;
+let lightboxPanX = 0;
+let lightboxPanY = 0;
+let lightboxPointers = new Map();
+let lightboxDragStart = null;
+let lightboxPinchStart = null;
+let lightboxGestureMoved = false;
 const imageDecodeCache = new Map();
 
 const escapeHtml = (value) =>
@@ -159,8 +172,8 @@ function projectImageFrame(image) {
 
 function viewerButtons(previousLabel, nextLabel, previousAction, nextAction) {
   return `
-    <button class="viewer-arrow viewer-arrow--previous" type="button" data-action="${previousAction}" aria-label="${escapeHtml(previousLabel)}"></button>
-    <button class="viewer-arrow viewer-arrow--next" type="button" data-action="${nextAction}" aria-label="${escapeHtml(nextLabel)}"></button>`;
+    <button class="viewer-arrow viewer-arrow--previous" type="button" tabindex="-1" data-action="${previousAction}" aria-label="${escapeHtml(previousLabel)}"></button>
+    <button class="viewer-arrow viewer-arrow--next" type="button" tabindex="-1" data-action="${nextAction}" aria-label="${escapeHtml(nextLabel)}"></button>`;
 }
 
 function fullscreenControl() {
@@ -199,8 +212,56 @@ async function toggleFullscreen() {
   }
 }
 
+function landingStageMarkup(index) {
+  const normalizedIndex = ((index % projects.length) + projects.length) % projects.length;
+  const project = projects[normalizedIndex];
+  const previous = projects[(normalizedIndex - 1 + projects.length) % projects.length];
+  const next = projects[(normalizedIndex + 1) % projects.length];
+
+  return `
+    <div class="viewer-stage">
+      <a class="viewer-media viewer-media--link" href="#project/${project.slug}" aria-label="Open ${escapeHtml(project.title)} details">
+        <img
+          class="viewer-image"
+          src="${project.coverSrc}"
+          width="${project.coverWidth}"
+          height="${project.coverHeight}"
+          alt="${escapeHtml(project.title)}, ${escapeHtml(project.city)}"
+          loading="eager"
+          fetchpriority="high"
+          decoding="async"
+        />
+      </a>
+      <aside class="viewer-caption">
+        <h1 id="project-title"><a href="#project/${project.slug}">${escapeHtml(project.title)}</a></h1>
+        <dl class="project-meta">
+          <dt>Architect</dt>
+          <dd>${escapeHtml(project.architect)}</dd>
+          <dt>City</dt>
+          <dd>${escapeHtml(project.city)}</dd>
+          <dt>Photographed</dt>
+          <dd>${escapeHtml(project.shootingDate)}</dd>
+          <dt>Camera</dt>
+          <dd>${escapeHtml(project.camera)}</dd>
+          <dt>Focal Length</dt>
+          <dd>${escapeHtml(project.focalLength)}</dd>
+        </dl>
+        <p class="project-description">${escapeHtml(project.description)}</p>
+        <div class="viewer-caption-footer">
+          <a class="view-project" href="#projects">Projects</a>
+          <span class="viewer-tools">
+            <span class="viewer-counter" aria-live="polite">${pad(normalizedIndex + 1)} / ${pad(projects.length)}</span>
+            ${fullscreenControl()}
+          </span>
+        </div>
+      </aside>
+      ${viewerButtons(`Previous project: ${previous.title}`, `Next project: ${next.title}`, "home-previous", "home-next")}
+    </div>`;
+}
+
 function renderLanding() {
   homeIndex = ((homeIndex % projects.length) + projects.length) % projects.length;
+  homeTargetIndex = null;
   const project = projects[homeIndex];
   const previous = projects[(homeIndex - 1 + projects.length) % projects.length];
   const next = projects[(homeIndex + 1) % projects.length];
@@ -211,44 +272,7 @@ function renderLanding() {
 
   app.innerHTML = `
     <section class="viewer viewer--home is-${direction}" aria-labelledby="project-title">
-      <div class="viewer-stage">
-        <a class="viewer-media viewer-media--link" href="#project/${project.slug}" aria-label="Open ${escapeHtml(project.title)} details">
-          <img
-            class="viewer-image"
-            src="${project.coverSrc}"
-            width="${project.coverWidth}"
-            height="${project.coverHeight}"
-            alt="${escapeHtml(project.title)}, ${escapeHtml(project.city)}"
-            loading="eager"
-            fetchpriority="high"
-            decoding="async"
-          />
-        </a>
-        <aside class="viewer-caption">
-          <h1 id="project-title"><a href="#project/${project.slug}">${escapeHtml(project.title)}</a></h1>
-          <dl class="project-meta">
-            <dt>Architect</dt>
-            <dd>${escapeHtml(project.architect)}</dd>
-            <dt>City</dt>
-            <dd>${escapeHtml(project.city)}</dd>
-            <dt>Photographed</dt>
-            <dd>${escapeHtml(project.shootingDate)}</dd>
-            <dt>Camera</dt>
-            <dd>${escapeHtml(project.camera)}</dd>
-            <dt>Focal Length</dt>
-            <dd>${escapeHtml(project.focalLength)}</dd>
-          </dl>
-          <p class="project-description">${escapeHtml(project.description)}</p>
-          <div class="viewer-caption-footer">
-            <a class="view-project" href="#projects">Projects</a>
-            <span class="viewer-tools">
-              <span class="viewer-counter" aria-live="polite">${pad(homeIndex + 1)} / ${pad(projects.length)}</span>
-              ${fullscreenControl()}
-            </span>
-          </div>
-        </aside>
-        ${viewerButtons(`Previous project: ${previous.title}`, `Next project: ${next.title}`, "home-previous", "home-next")}
-      </div>
+      ${landingStageMarkup(homeIndex)}
     </section>`;
 
   preload([previous.coverSrc, next.coverSrc]);
@@ -267,7 +291,7 @@ function renderArchive(city = "All") {
   const cards = visible
     .map(
       (project, order) => `
-        <article class="archive-card" style="--span:${project.span};--order:${order}" data-span="${project.span}">
+        <article class="archive-card" style="--order:${order}">
           <a href="#project/${encodeURIComponent(project.slug)}" aria-label="Open ${escapeHtml(project.title)}">
             <figure>
               <img
@@ -337,8 +361,8 @@ function lightboxMarkup(title) {
       <div class="lightbox-shell">
         <button class="lightbox-close" type="button" data-action="close-lightbox">Close</button>
         <div class="lightbox-stage" aria-live="polite"></div>
-        <button class="lightbox-arrow lightbox-arrow--previous" type="button" data-action="lightbox-previous" aria-label="Previous photograph"></button>
-        <button class="lightbox-arrow lightbox-arrow--next" type="button" data-action="lightbox-next" aria-label="Next photograph"></button>
+        <button class="lightbox-arrow lightbox-arrow--previous" type="button" tabindex="-1" data-action="lightbox-previous" aria-label="Previous photograph"></button>
+        <button class="lightbox-arrow lightbox-arrow--next" type="button" tabindex="-1" data-action="lightbox-next" aria-label="Next photograph"></button>
         <div class="lightbox-meta">
           <span class="lightbox-category"></span>
           <span class="lightbox-counter"></span>
@@ -442,12 +466,71 @@ function preloadLightboxNeighbors() {
   preload([previous.full, next.full]);
 }
 
+function activeLightboxImage() {
+  return app.querySelector(".lightbox:not([hidden]) .lightbox-frame:not(.lightbox-frame--outgoing) img");
+}
+
+function clampLightboxPan(scale, panX, panY) {
+  const image = activeLightboxImage();
+  const stage = app.querySelector(".lightbox:not([hidden]) .lightbox-stage");
+  if (!image || !stage) return { x: 0, y: 0 };
+  const maxX = Math.max(0, (image.offsetWidth * scale - stage.clientWidth) / 2);
+  const maxY = Math.max(0, (image.offsetHeight * scale - stage.clientHeight) / 2);
+  return {
+    x: Math.max(-maxX, Math.min(maxX, panX)),
+    y: Math.max(-maxY, Math.min(maxY, panY)),
+  };
+}
+
+function applyLightboxTransform(scale, panX, panY) {
+  const image = activeLightboxImage();
+  const lightbox = app.querySelector(".lightbox:not([hidden])");
+  if (!image || !lightbox) return;
+  const nextScale = Math.max(1, Math.min(5, scale));
+  const nextPan = clampLightboxPan(nextScale, panX, panY);
+  lightboxScale = nextScale;
+  lightboxPanX = nextScale === 1 ? 0 : nextPan.x;
+  lightboxPanY = nextScale === 1 ? 0 : nextPan.y;
+  image.style.transform = `translate3d(${lightboxPanX}px, ${lightboxPanY}px, 0) scale(${lightboxScale})`;
+  lightbox.classList.toggle("is-zoomed", lightboxScale > 1);
+}
+
+function zoomLightboxAt(scale, clientX, clientY) {
+  const stage = app.querySelector(".lightbox:not([hidden]) .lightbox-stage");
+  if (!stage) return;
+  const stageRect = stage.getBoundingClientRect();
+  const centerX = stageRect.left + stageRect.width / 2;
+  const centerY = stageRect.top + stageRect.height / 2;
+  const nextScale = Math.max(1, Math.min(5, scale));
+  const ratio = nextScale / lightboxScale;
+  const relativeX = clientX - centerX - lightboxPanX;
+  const relativeY = clientY - centerY - lightboxPanY;
+  applyLightboxTransform(
+    nextScale,
+    lightboxPanX + relativeX * (1 - ratio),
+    lightboxPanY + relativeY * (1 - ratio),
+  );
+}
+
+function resetLightboxTransform() {
+  app.querySelectorAll(".lightbox-stage img").forEach((image) => image.style.removeProperty("transform"));
+  app.querySelector(".lightbox")?.classList.remove("is-zoomed", "is-dragging");
+  lightboxScale = 1;
+  lightboxPanX = 0;
+  lightboxPanY = 0;
+  lightboxPointers.clear();
+  lightboxDragStart = null;
+  lightboxPinchStart = null;
+}
+
 async function openLightbox(index, mode = "about") {
   lightboxMode = mode;
+  lightboxGestureMoved = false;
   const photos = lightboxPhotos();
   const lightbox = app.querySelector(".lightbox");
   if (!lightbox || !photos.length) return;
   lightboxIndex = ((Number(index) % photos.length) + photos.length) % photos.length;
+  resetLightboxTransform();
   lightboxReturnFocus = document.activeElement;
   lightbox.hidden = false;
   document.body.classList.add("lightbox-open");
@@ -467,6 +550,8 @@ function closeLightbox() {
   const lightbox = app.querySelector(".lightbox");
   if (!lightbox || lightbox.hidden) return;
   lightbox.classList.remove("is-open");
+  resetLightboxTransform();
+  lightboxGestureMoved = false;
   lightbox.hidden = true;
   lightboxLocked = false;
   document.body.classList.remove("lightbox-open");
@@ -478,6 +563,7 @@ async function moveLightbox(step) {
   const photos = lightboxPhotos();
   const lightbox = app.querySelector(".lightbox");
   if (!lightbox || lightbox.hidden || lightboxLocked || !photos.length) return;
+  resetLightboxTransform();
   const nextIndex = (lightboxIndex + step + photos.length) % photos.length;
   const nextPhoto = photos[nextIndex];
   const stage = lightbox.querySelector(".lightbox-stage");
@@ -536,6 +622,7 @@ function renderProject(slug) {
 
   if (activeProjectSlug !== slug) photoIndex = 0;
   activeProjectSlug = slug;
+  photoTargetIndex = null;
   photoIndex = ((photoIndex % project.images.length) + project.images.length) % project.images.length;
 
   const image = project.images[photoIndex];
@@ -581,125 +668,184 @@ function renderProject(slug) {
   syncFullscreenControls();
 }
 
-async function runCarouselTransition(step, update, incomingSrc) {
-  if (transitionLocked) return;
-  transitionLocked = true;
+function retargetCarouselLayer(layer, removeClasses, addClasses) {
+  const transform = getComputedStyle(layer).transform;
+  layer.style.transition = "none";
+  layer.style.transform = transform;
+  layer.classList.remove(...removeClasses);
+  layer.classList.add(...addClasses);
+  layer.getBoundingClientRect();
+  requestAnimationFrame(() => {
+    layer.style.removeProperty("transition");
+    layer.style.removeProperty("transform");
+  });
+}
+
+function introduceCarouselLayer(layer, shift) {
+  layer.style.transition = "none";
+  layer.style.transform = `translate3d(${shift}%, 0, 0)`;
+  layer.getBoundingClientRect();
+  requestAnimationFrame(() => {
+    layer.style.removeProperty("transition");
+    layer.style.removeProperty("transform");
+  });
+}
+
+async function moveHome(step) {
+  const baseIndex = homeTargetIndex ?? homeIndex;
+  const nextIndex = (baseIndex + step + projects.length) % projects.length;
+  const nextProject = projects[nextIndex];
+  const requestToken = ++homeRequestToken;
+  homeTargetIndex = nextIndex;
   direction = step > 0 ? "next" : "previous";
-  await prepareImage(incomingSrc);
-  const outgoing = app.querySelector(".viewer-stage")?.cloneNode(true);
-  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (!outgoing || reduceMotion) {
-    update();
-    transitionLocked = false;
+  const moveDirection = direction;
+  await prepareImage(nextProject.coverSrc);
+
+  if (requestToken !== homeRequestToken || route().view !== "landing") return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    homeIndex = nextIndex;
+    renderLanding();
     return;
   }
 
-  update();
-  const viewer = app.querySelector(".viewer");
-  const incoming = viewer?.querySelector(".viewer-stage");
-  if (!viewer || !incoming) {
-    transitionLocked = false;
-    return;
-  }
+  const viewer = app.querySelector(".viewer--home");
+  if (!viewer) return;
+  const activeIncoming = viewer.querySelector(".carousel-incoming");
+  const settled = viewer.querySelector(".viewer-stage:not(.carousel-layer)");
+  const outgoing = activeIncoming || settled;
+  if (!outgoing) return;
 
-  viewer.classList.add("carousel-transition");
-  incoming.classList.add("carousel-layer", "carousel-incoming", `carousel-${direction}`);
-  outgoing.classList.add("carousel-layer", "carousel-outgoing", `carousel-${direction}`);
+  viewer.querySelectorAll(".carousel-outgoing").forEach((layer) => layer.remove());
+  if (activeIncoming) {
+    retargetCarouselLayer(
+      activeIncoming,
+      ["carousel-incoming", "carousel-next", "carousel-previous"],
+      ["carousel-outgoing", `carousel-${moveDirection}`],
+    );
+  } else {
+    outgoing.classList.add("carousel-layer", "carousel-outgoing", `carousel-${moveDirection}`);
+    outgoing.getBoundingClientRect();
+  }
   outgoing.setAttribute("aria-hidden", "true");
-  viewer.append(outgoing);
 
-  incoming.getBoundingClientRect();
-  viewer.classList.add("carousel-active");
+  const template = document.createElement("template");
+  template.innerHTML = landingStageMarkup(nextIndex).trim();
+  const incoming = template.content.firstElementChild;
+  incoming.classList.add("carousel-layer", "carousel-incoming", `carousel-${moveDirection}`);
+  viewer.classList.add("carousel-transition", "carousel-active");
+  viewer.append(incoming);
+  introduceCarouselLayer(incoming, moveDirection === "next" ? 100 : -100);
 
+  document.title = `${nextProject.title} — Stelvio J`;
+  renderNav();
+  syncFullscreenControls();
+  transitionLocked = true;
+  const transitionToken = ++homeTransitionToken;
   let finished = false;
   const finish = () => {
-    if (finished) return;
+    if (finished || transitionToken !== homeTransitionToken) return;
     finished = true;
+    viewer.querySelectorAll(".viewer-stage").forEach((layer) => {
+      if (layer !== incoming) layer.remove();
+    });
     incoming.classList.add("carousel-settled");
-    outgoing.remove();
-    incoming.classList.remove("carousel-layer", "carousel-incoming", `carousel-${direction}`);
+    incoming.classList.remove("carousel-layer", "carousel-incoming", "carousel-next", "carousel-previous");
+    incoming.style.removeProperty("transition");
+    incoming.style.removeProperty("transform");
     viewer.classList.remove("carousel-transition", "carousel-active");
+    homeIndex = nextIndex;
+    homeTargetIndex = null;
     transitionLocked = false;
+    const previous = projects[(homeIndex - 1 + projects.length) % projects.length];
+    const next = projects[(homeIndex + 1) % projects.length];
+    preload([previous.coverSrc, next.coverSrc]);
   };
   incoming.addEventListener("transitionend", finish, { once: true });
   window.setTimeout(finish, 1650);
 }
 
-function moveHome(step) {
-  const nextIndex = (homeIndex + step + projects.length) % projects.length;
-  runCarouselTransition(step, () => {
-    homeIndex = (homeIndex + step + projects.length) % projects.length;
-    renderLanding();
-  }, projects[nextIndex].coverSrc);
-}
-
 async function movePhoto(step) {
-  if (transitionLocked) return;
   const project = projects.find((item) => item.slug === route().value);
   if (!project?.images.length) return;
-  const nextIndex = (photoIndex + step + project.images.length) % project.images.length;
+  const baseIndex = photoTargetIndex ?? photoIndex;
+  const nextIndex = (baseIndex + step + project.images.length) % project.images.length;
   const nextImage = project.images[nextIndex];
   const media = app.querySelector(".viewer--project .viewer-media");
-  const outgoing = media?.querySelector(".viewer-image-frame");
-  if (!media || !outgoing) return;
+  if (!media) return;
 
-  transitionLocked = true;
   direction = step > 0 ? "next" : "previous";
+  const moveDirection = direction;
+  const requestToken = ++photoRequestToken;
+  photoTargetIndex = nextIndex;
   await prepareImage(nextImage.src);
 
-  if (route().view !== "project" || route().value !== project.slug) {
-    transitionLocked = false;
-    return;
-  }
+  if (requestToken !== photoRequestToken || route().view !== "project" || route().value !== project.slug) return;
 
   const incomingTemplate = document.createElement("template");
   incomingTemplate.innerHTML = projectImageFrame(nextImage).trim();
   const incoming = incomingTemplate.content.firstElementChild;
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const finish = () => {
-    incoming.classList.add("carousel-settled");
-    outgoing.remove();
-    incoming.classList.remove("media-carousel-layer", "media-carousel-incoming", `carousel-${direction}`);
-    media.classList.remove("media-carousel-transition", "media-carousel-active");
-    photoIndex = nextIndex;
-    const counter = app.querySelector(".viewer-counter");
-    if (counter) counter.textContent = `${pad(photoIndex + 1)} / ${pad(project.images.length)}`;
-    const previous = project.images[(photoIndex - 1 + project.images.length) % project.images.length];
-    const next = project.images[(photoIndex + 1) % project.images.length];
-    preload([previous.src, next.src]);
-    transitionLocked = false;
-  };
-
   if (reduceMotion) {
     media.replaceChildren(incoming);
     photoIndex = nextIndex;
+    photoTargetIndex = null;
     const counter = app.querySelector(".viewer-counter");
     if (counter) counter.textContent = `${pad(photoIndex + 1)} / ${pad(project.images.length)}`;
     preload([
       project.images[(photoIndex - 1 + project.images.length) % project.images.length].src,
       project.images[(photoIndex + 1) % project.images.length].src,
     ]);
-    transitionLocked = false;
     return;
   }
 
-  outgoing.classList.add("media-carousel-layer", "media-carousel-outgoing", `carousel-${direction}`);
-  incoming.classList.add("media-carousel-layer", "media-carousel-incoming", `carousel-${direction}`);
-  outgoing.setAttribute("aria-hidden", "true");
-  media.classList.add("media-carousel-transition");
-  media.append(incoming);
-  incoming.getBoundingClientRect();
-  media.classList.add("media-carousel-active");
+  const activeIncoming = media.querySelector(".media-carousel-incoming");
+  const settled = media.querySelector(".viewer-image-frame:not(.media-carousel-layer)");
+  const outgoing = activeIncoming || settled;
+  if (!outgoing) return;
 
+  media.querySelectorAll(".media-carousel-outgoing").forEach((layer) => layer.remove());
+  if (activeIncoming) {
+    retargetCarouselLayer(
+      activeIncoming,
+      ["media-carousel-incoming", "carousel-next", "carousel-previous"],
+      ["media-carousel-outgoing", `carousel-${moveDirection}`],
+    );
+  } else {
+    outgoing.classList.add("media-carousel-layer", "media-carousel-outgoing", `carousel-${moveDirection}`);
+    outgoing.getBoundingClientRect();
+  }
+  incoming.classList.add("media-carousel-layer", "media-carousel-incoming", `carousel-${moveDirection}`);
+  outgoing.setAttribute("aria-hidden", "true");
+  media.classList.add("media-carousel-transition", "media-carousel-active");
+  media.append(incoming);
+  introduceCarouselLayer(incoming, moveDirection === "next" ? 110 : -110);
+  const counter = app.querySelector(".viewer-counter");
+  if (counter) counter.textContent = `${pad(nextIndex + 1)} / ${pad(project.images.length)}`;
+  transitionLocked = true;
+
+  const transitionToken = ++photoTransitionToken;
   let finished = false;
-  const finishOnce = () => {
-    if (finished) return;
+  const finish = () => {
+    if (finished || transitionToken !== photoTransitionToken) return;
     finished = true;
-    finish();
+    media.querySelectorAll(".viewer-image-frame").forEach((layer) => {
+      if (layer !== incoming) layer.remove();
+    });
+    incoming.classList.add("carousel-settled");
+    incoming.classList.remove("media-carousel-layer", "media-carousel-incoming", "carousel-next", "carousel-previous");
+    incoming.style.removeProperty("transition");
+    incoming.style.removeProperty("transform");
+    media.classList.remove("media-carousel-transition", "media-carousel-active");
+    photoIndex = nextIndex;
+    photoTargetIndex = null;
+    const previous = project.images[(photoIndex - 1 + project.images.length) % project.images.length];
+    const next = project.images[(photoIndex + 1) % project.images.length];
+    preload([previous.src, next.src]);
+    transitionLocked = false;
   };
-  incoming.addEventListener("transitionend", finishOnce, { once: true });
-  window.setTimeout(finishOnce, 1650);
+  incoming.addEventListener("transitionend", finish, { once: true });
+  window.setTimeout(finish, 1650);
 }
 
 function moveCurrent(step) {
@@ -710,6 +856,13 @@ function moveCurrent(step) {
 
 function render() {
   if (!projects.length) return;
+  homeRequestToken += 1;
+  homeTransitionToken += 1;
+  photoRequestToken += 1;
+  photoTransitionToken += 1;
+  homeTargetIndex = null;
+  photoTargetIndex = null;
+  transitionLocked = false;
   document.body.classList.remove("lightbox-open");
   lightboxLocked = false;
   const current = route();
@@ -726,6 +879,14 @@ function render() {
 app.addEventListener("click", (event) => {
   const control = event.target.closest("[data-action]");
   if (!control) return;
+  if (lightboxGestureMoved && control.dataset.action.startsWith("lightbox-")) {
+    event.preventDefault();
+    return;
+  }
+  if (viewerGestureMoved && ["home-previous", "home-next", "photo-previous", "photo-next"].includes(control.dataset.action)) {
+    event.preventDefault();
+    return;
+  }
   const actions = {
     "home-previous": () => moveHome(-1),
     "home-next": () => moveHome(1),
@@ -742,30 +903,162 @@ app.addEventListener("click", (event) => {
 
 app.addEventListener("dblclick", (event) => {
   if (route().view !== "project" || !event.target.closest(".viewer--project .viewer-image-frame")) return;
-  openLightbox(photoIndex, "project");
+  openLightbox(photoTargetIndex ?? photoIndex, "project");
 });
 
-app.addEventListener("touchstart", (event) => {
-  lightboxTouchStartX = event.target.closest(".lightbox-stage")
-    ? event.changedTouches[0]?.clientX ?? null
-    : null;
-  touchStartX = event.target.closest(".viewer-media")
-    ? event.changedTouches[0]?.clientX ?? null
-    : null;
-}, { passive: true });
+app.addEventListener("wheel", (event) => {
+  const lightbox = event.target.closest(".lightbox");
+  if (!lightbox || lightbox.hidden || lightboxLocked || event.target.closest(".lightbox-close")) return;
+  event.preventDefault();
+  const factor = Math.exp(-event.deltaY * 0.0015);
+  zoomLightboxAt(lightboxScale * factor, event.clientX, event.clientY);
+}, { passive: false });
 
-app.addEventListener("touchend", (event) => {
-  if (lightboxTouchStartX !== null) {
-    const lightboxDistance = (event.changedTouches[0]?.clientX ?? lightboxTouchStartX) - lightboxTouchStartX;
-    lightboxTouchStartX = null;
-    if (Math.abs(lightboxDistance) > 48) moveLightbox(lightboxDistance < 0 ? 1 : -1);
+app.addEventListener("pointerdown", (event) => {
+  const lightbox = event.target.closest(".lightbox");
+  if (!lightbox || lightbox.hidden || lightboxLocked || event.target.closest(".lightbox-close")) return;
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+  lightboxPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  event.target.setPointerCapture?.(event.pointerId);
+  lightboxGestureMoved = false;
+
+  if (lightboxPointers.size === 1) {
+    lightboxDragStart = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      panX: lightboxPanX,
+      panY: lightboxPanY,
+    };
+    lightbox.classList.toggle("is-dragging", lightboxScale > 1);
+  } else if (lightboxPointers.size === 2) {
+    const [first, second] = [...lightboxPointers.values()];
+    lightboxPinchStart = {
+      distance: Math.hypot(second.x - first.x, second.y - first.y),
+      centerX: (first.x + second.x) / 2,
+      centerY: (first.y + second.y) / 2,
+      scale: lightboxScale,
+      panX: lightboxPanX,
+      panY: lightboxPanY,
+    };
+    lightbox.classList.add("is-dragging");
+  }
+});
+
+app.addEventListener("pointerdown", (event) => {
+  if (!event.target.closest(".viewer-stage") || event.target.closest(".lightbox")) return;
+  if (event.pointerType === "mouse" && event.button !== 0) return;
+  viewerGestureMoved = false;
+  viewerPointerStart = {
+    pointerId: event.pointerId,
+    x: event.clientX,
+    y: event.clientY,
+  };
+  event.target.setPointerCapture?.(event.pointerId);
+});
+
+app.addEventListener("pointermove", (event) => {
+  if (!lightboxPointers.has(event.pointerId)) return;
+  lightboxPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+  if (lightboxPointers.size >= 2 && lightboxPinchStart) {
+    event.preventDefault();
+    const [first, second] = [...lightboxPointers.values()];
+    const distance = Math.hypot(second.x - first.x, second.y - first.y);
+    const centerX = (first.x + second.x) / 2;
+    const centerY = (first.y + second.y) / 2;
+    const nextScale = Math.max(1, Math.min(5, lightboxPinchStart.scale * distance / Math.max(1, lightboxPinchStart.distance)));
+    const stage = app.querySelector(".lightbox:not([hidden]) .lightbox-stage");
+    if (!stage) return;
+    const stageRect = stage.getBoundingClientRect();
+    const stageCenterX = stageRect.left + stageRect.width / 2;
+    const stageCenterY = stageRect.top + stageRect.height / 2;
+    const ratio = nextScale / lightboxPinchStart.scale;
+    applyLightboxTransform(
+      nextScale,
+      lightboxPinchStart.panX + (centerX - lightboxPinchStart.centerX)
+        + (lightboxPinchStart.centerX - stageCenterX - lightboxPinchStart.panX) * (1 - ratio),
+      lightboxPinchStart.panY + (centerY - lightboxPinchStart.centerY)
+        + (lightboxPinchStart.centerY - stageCenterY - lightboxPinchStart.panY) * (1 - ratio),
+    );
+    if (Math.abs(distance - lightboxPinchStart.distance) > 4) lightboxGestureMoved = true;
     return;
   }
-  if (touchStartX === null) return;
-  const distance = (event.changedTouches[0]?.clientX ?? touchStartX) - touchStartX;
-  touchStartX = null;
-  if (Math.abs(distance) > 48) moveCurrent(distance < 0 ? 1 : -1);
-}, { passive: true });
+
+  if (!lightboxDragStart || lightboxDragStart.pointerId !== event.pointerId) return;
+  const deltaX = event.clientX - lightboxDragStart.x;
+  const deltaY = event.clientY - lightboxDragStart.y;
+  if (Math.hypot(deltaX, deltaY) > 6) lightboxGestureMoved = true;
+  if (lightboxScale > 1) {
+    event.preventDefault();
+    applyLightboxTransform(
+      lightboxScale,
+      lightboxDragStart.panX + deltaX,
+      lightboxDragStart.panY + deltaY,
+    );
+  }
+});
+
+app.addEventListener("pointermove", (event) => {
+  if (!viewerPointerStart || viewerPointerStart.pointerId !== event.pointerId) return;
+  const deltaX = event.clientX - viewerPointerStart.x;
+  const deltaY = event.clientY - viewerPointerStart.y;
+  if (Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY)) {
+    viewerGestureMoved = true;
+    event.preventDefault();
+  }
+});
+
+function finishLightboxPointer(event, allowSwipe) {
+  const point = lightboxPointers.get(event.pointerId);
+  const drag = lightboxDragStart?.pointerId === event.pointerId ? lightboxDragStart : null;
+  lightboxPointers.delete(event.pointerId);
+
+  if (allowSwipe && point && drag && lightboxScale === 1) {
+    const deltaX = point.x - drag.x;
+    const deltaY = point.y - drag.y;
+    if (Math.abs(deltaX) > 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1) {
+      lightboxGestureMoved = true;
+      moveLightbox(deltaX < 0 ? 1 : -1);
+    }
+  }
+
+  if (lightboxPointers.size === 1) {
+    const [pointerId, remaining] = [...lightboxPointers.entries()][0];
+    lightboxDragStart = {
+      pointerId,
+      x: remaining.x,
+      y: remaining.y,
+      panX: lightboxPanX,
+      panY: lightboxPanY,
+    };
+    lightboxPinchStart = null;
+  } else if (lightboxPointers.size === 0) {
+    lightboxDragStart = null;
+    lightboxPinchStart = null;
+    app.querySelector(".lightbox")?.classList.remove("is-dragging");
+    window.setTimeout(() => { lightboxGestureMoved = false; }, 0);
+  }
+}
+
+app.addEventListener("pointerup", (event) => finishLightboxPointer(event, true));
+app.addEventListener("pointercancel", (event) => finishLightboxPointer(event, false));
+
+app.addEventListener("pointerup", (event) => {
+  if (!viewerPointerStart || viewerPointerStart.pointerId !== event.pointerId) return;
+  const deltaX = event.clientX - viewerPointerStart.x;
+  const deltaY = event.clientY - viewerPointerStart.y;
+  viewerPointerStart = null;
+  if (Math.abs(deltaX) > 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1) {
+    viewerGestureMoved = true;
+    moveCurrent(deltaX < 0 ? 1 : -1);
+  }
+  window.setTimeout(() => { viewerGestureMoved = false; }, 0);
+});
+
+app.addEventListener("pointercancel", (event) => {
+  if (viewerPointerStart?.pointerId === event.pointerId) viewerPointerStart = null;
+});
 
 brand.addEventListener("click", () => {
   if (!window.location.hash) {
@@ -812,11 +1105,11 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-23"),
-  fetch("assets/portfolio-preferences.json?v=20260807-23"),
-  fetch("assets/about-gallery.json?v=20260807-23"),
-  fetch("assets/project-essays.json?v=20260807-23"),
-  fetch("assets/project-equipment.json?v=20260807-23"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-27"),
+  fetch("assets/portfolio-preferences.json?v=20260807-27"),
+  fetch("assets/about-gallery.json?v=20260807-27"),
+  fetch("assets/project-essays.json?v=20260807-27"),
+  fetch("assets/project-equipment.json?v=20260807-27"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
