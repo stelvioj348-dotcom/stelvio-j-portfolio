@@ -692,6 +692,7 @@ body[data-view="contact"] #app {
   place-self: center;
   width: clamp(132px, 14vw, 220px);
   margin: 0;
+  transform: translateX(-8%);
 }
 
 .contact-portrait img {
@@ -1129,6 +1130,7 @@ body.lightbox-open { overflow: hidden !important; }
   .contact-portrait {
     width: min(38vw, 150px);
     margin: 0 auto 54px;
+    transform: none;
   }
   .contact-list { width: 100%; }
   .contact-list > div { grid-template-columns: 96px minmax(0, 1fr); gap: 12px; }
