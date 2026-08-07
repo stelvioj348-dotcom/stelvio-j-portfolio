@@ -516,8 +516,8 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-5"),
-  fetch("assets/portfolio-preferences.json?v=20260807-5"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-6"),
+  fetch("assets/portfolio-preferences.json?v=20260807-6"),
 ])
   .then(async ([dataResponse, preferencesResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);

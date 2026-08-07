@@ -394,6 +394,11 @@ body[data-view="archive"] #app {
   animation-delay: calc(min(var(--order), 14) * 22ms);
 }
 
+.archive-card:nth-child(6n + 2) { margin-top: 20px; }
+.archive-card:nth-child(6n + 3) { margin-top: 7px; }
+.archive-card:nth-child(6n + 5) { margin-top: 30px; }
+.archive-card:nth-child(6n + 6) { margin-top: 13px; }
+
 .archive-card a,
 .archive-card img {
   display: block;
@@ -405,15 +410,9 @@ body[data-view="archive"] #app {
   background: var(--line);
 }
 
-.archive-card[data-span="2"] figure { aspect-ratio: 4 / 5; }
-.archive-card[data-span="3"] figure { aspect-ratio: 6 / 5; }
-.archive-card[data-span="4"] figure { aspect-ratio: 8 / 5; }
-.archive-card[data-span="6"] figure { aspect-ratio: 12 / 5; }
-
 .archive-card img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
   transition: opacity 220ms ease, transform 420ms cubic-bezier(0.2, 0.72, 0.25, 1);
 }
 
@@ -509,11 +508,6 @@ body[data-view="archive"] #app {
   .viewer-caption h1 { font-size: 25px; }
   .archive-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 24px 18px; }
   .archive-card { grid-column: span 3; }
-  .archive-card figure,
-  .archive-card[data-span="2"] figure,
-  .archive-card[data-span="3"] figure,
-  .archive-card[data-span="4"] figure,
-  .archive-card[data-span="6"] figure { aspect-ratio: 6 / 5; }
   .project-description {
     display: -webkit-box;
     overflow: hidden;
@@ -594,12 +588,11 @@ body[data-view="archive"] #app {
   .archive-toolbar { grid-template-columns: auto 1fr; margin-bottom: 20px; }
   .archive-toolbar a { grid-column: 1 / -1; }
   .archive-grid { display: block; }
-  .archive-card { margin-bottom: 27px; }
-  .archive-card figure,
-  .archive-card[data-span="2"] figure,
-  .archive-card[data-span="3"] figure,
-  .archive-card[data-span="4"] figure,
-  .archive-card[data-span="6"] figure { aspect-ratio: 6 / 5; }
+  .archive-card,
+  .archive-card:nth-child(6n + 2),
+  .archive-card:nth-child(6n + 3),
+  .archive-card:nth-child(6n + 5),
+  .archive-card:nth-child(6n + 6) { margin-top: 0; margin-bottom: 27px; }
 }
 
 @media (max-height: 630px) and (min-width: 721px) {
