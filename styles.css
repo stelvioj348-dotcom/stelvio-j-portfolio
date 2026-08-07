@@ -998,18 +998,18 @@ body.lightbox-open { overflow: hidden !important; }
 }
 
 @media (max-width: 720px) {
-  :root { --gutter: 15px; --header-height: 92px; }
+  :root { --gutter: 15px; --header-height: 72px; }
 
-  .site-header { display: block; padding-top: 14px; }
+  .site-header { display: block; padding-top: 8px; }
   .identity-nav { justify-content: space-between; gap: 18px; }
   .brand { display: inline-block; }
-  .profile-nav { gap: 17px; }
+  .profile-nav { gap: 15px; }
 
   .city-nav {
     justify-content: flex-start;
-    gap: 17px;
-    margin: 12px 0 0;
-    padding-bottom: 5px;
+    gap: 15px;
+    margin: 5px 0 0;
+    padding-bottom: 2px;
   }
 
   .identity-nav,
@@ -1022,12 +1022,12 @@ body.lightbox-open { overflow: hidden !important; }
 
   .viewer-stage {
     display: grid;
-    grid-template-rows: minmax(0, 62fr) minmax(205px, 38fr);
+    grid-template-rows: minmax(0, 58fr) minmax(220px, 42fr);
     grid-template-columns: 1fr;
   }
 
   .viewer--project .viewer-stage {
-    grid-template-rows: minmax(0, 56fr) minmax(240px, 44fr);
+    grid-template-rows: minmax(0, 48fr) minmax(275px, 52fr);
   }
 
   .viewer-media {
@@ -1089,12 +1089,12 @@ body.lightbox-open { overflow: hidden !important; }
     top: 0;
     bottom: auto;
     width: min(28vw, 112px);
-    height: 62%;
+    height: 58%;
   }
 
   .viewer-arrow--next { right: 0; }
 
-  .viewer--project .viewer-arrow { height: 56%; }
+  .viewer--project .viewer-arrow { height: 48%; }
 
   .archive-view { padding-top: 10px; }
   .archive-toolbar { grid-template-columns: auto 1fr; margin-bottom: 20px; }
