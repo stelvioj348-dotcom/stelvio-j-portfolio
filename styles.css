@@ -161,6 +161,11 @@ body.home-project-exit .brand::after {
 
 body[data-view="project"] .brand::after { opacity: 0; }
 
+body.project-home-return .brand { transform: none; }
+body.project-home-return .brand::after {
+  animation: brand-line-exit 1320ms cubic-bezier(0.16, 1, 0.3, 1) reverse both;
+}
+
 .profile-nav {
   display: flex;
   gap: 20px;
@@ -325,6 +330,7 @@ body[data-view="project"] .brand::after { opacity: 0; }
 }
 
 body.project-entry-arrival .viewer--project .viewer-image { animation: none; }
+.viewer-image--steady { animation: none; }
 
 .viewer--home .viewer-image {
   object-fit: cover;
@@ -571,7 +577,8 @@ body[data-view="contact"] #app {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .archive-card a:hover img { transform: scale(1.015); }
+  .archive-card a:hover img,
+  .archive-card.is-cursor-hovered img { transform: scale(1.015); }
 }
 
 .archive-card h2 {
@@ -708,7 +715,8 @@ body[data-view="contact"] #app {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .about-photo button:hover img { transform: scale(1.015); }
+  .about-photo button:hover img,
+  .about-photo.is-cursor-hovered img { transform: scale(1.015); }
 }
 
 .about-photo figcaption {

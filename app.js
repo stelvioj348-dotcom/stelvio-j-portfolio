@@ -47,6 +47,7 @@ let homeAutoplayTimer = null;
 let lightboxClickTimer = null;
 let projectEntryPending = false;
 let projectEntryTimer = null;
+let homeReturnTimer = null;
 
 const wheelThreshold = 36;
 const wheelGestureResetMs = 180;
@@ -63,6 +64,7 @@ const finePointerQuery = window.matchMedia("(hover: hover) and (pointer: fine)")
 let cursorTargetX = 0;
 let cursorTargetY = 0;
 let cursorReady = false;
+let hoveredGalleryItem = null;
 
 function cursorControlTarget(target) {
   if (!target) return null;
@@ -119,6 +121,13 @@ window.addEventListener("pointermove", (event) => {
   brand.classList.toggle("is-cursor-hovered", Boolean(event.target.closest?.(".brand")));
   const portrait = app.querySelector(".contact-portrait");
   portrait?.classList.toggle("is-cursor-hovered", Boolean(event.target.closest?.(".contact-portrait")));
+  const galleryHit = event.target.closest?.(".archive-card figure, .about-photo button");
+  const nextGalleryItem = galleryHit?.closest(".archive-card, .about-photo") || null;
+  if (nextGalleryItem !== hoveredGalleryItem) {
+    hoveredGalleryItem?.classList.remove("is-cursor-hovered");
+    hoveredGalleryItem = nextGalleryItem;
+    hoveredGalleryItem?.classList.add("is-cursor-hovered");
+  }
   const nearby = nearbyCursorControl(event.clientX, event.clientY, event.target);
   const action = event.target.closest?.("[data-action]")?.dataset.action || "";
   const isPrevious = !nearby && action.endsWith("previous");
@@ -161,6 +170,8 @@ window.addEventListener("pointerup", () => fluidCursor.classList.remove("is-pres
 document.documentElement.addEventListener("mouseleave", () => {
   brand.classList.remove("is-cursor-hovered");
   app.querySelector(".contact-portrait")?.classList.remove("is-cursor-hovered");
+  hoveredGalleryItem?.classList.remove("is-cursor-hovered");
+  hoveredGalleryItem = null;
   fluidCursor.classList.remove("is-visible", "is-magnetic", "is-previous", "is-next", "is-over-projects");
 });
 
@@ -294,6 +305,25 @@ function beginProjectEntry(href) {
   window.setTimeout(() => {
     window.location.hash = href.replace(/^#/, "");
   }, 1240);
+}
+
+function beginHomeReturn() {
+  if (document.body.classList.contains("project-home-return")) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    window.location.hash = "";
+    return;
+  }
+  syncBrandLineMetrics();
+  brand.classList.remove("is-cursor-hovered");
+  document.body.classList.add("project-home-return");
+  window.setTimeout(() => {
+    window.location.hash = "";
+  }, 1240);
+  if (homeReturnTimer !== null) window.clearTimeout(homeReturnTimer);
+  homeReturnTimer = window.setTimeout(() => {
+    document.body.classList.remove("project-home-return");
+    homeReturnTimer = null;
+  }, 1360);
 }
 
 const architectWebsiteRules = [
@@ -597,6 +627,10 @@ function renderLanding() {
     <section class="viewer viewer--home is-${direction}" aria-labelledby="project-title">
       ${landingStageMarkup(homeIndex)}
     </section>`;
+
+  if (document.body.classList.contains("project-home-return")) {
+    app.querySelector(".viewer--home .viewer-image")?.classList.add("viewer-image--steady");
+  }
 
   preloadAround(projects, homeIndex, (item) => item.coverSrc);
   requestAnimationFrame(syncHomePagingCues);
@@ -1601,7 +1635,12 @@ app.addEventListener("pointercancel", (event) => {
   if (viewerPointerStart?.pointerId === event.pointerId) viewerPointerStart = null;
 });
 
-brand.addEventListener("click", () => {
+brand.addEventListener("click", (event) => {
+  if (route().view === "project") {
+    event.preventDefault();
+    beginHomeReturn();
+    return;
+  }
   if (!window.location.hash) {
     homeIndex = 0;
     renderLanding();
@@ -1663,13 +1702,13 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-63"),
-  fetch("assets/portfolio-preferences.json?v=20260807-63"),
-  fetch("assets/about-gallery.json?v=20260807-63"),
-  fetch("assets/project-essays.json?v=20260807-63"),
-  fetch("assets/project-equipment.json?v=20260807-63"),
-  fetch("assets/project-hq.json?v=20260807-63"),
-  fetch("assets/project-cover-images.json?v=20260807-63"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-66"),
+  fetch("assets/portfolio-preferences.json?v=20260807-66"),
+  fetch("assets/about-gallery.json?v=20260807-66"),
+  fetch("assets/project-essays.json?v=20260807-66"),
+  fetch("assets/project-equipment.json?v=20260807-66"),
+  fetch("assets/project-hq.json?v=20260807-66"),
+  fetch("assets/project-cover-images.json?v=20260807-66"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse, hqResponse, coversResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
