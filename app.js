@@ -291,6 +291,10 @@ function renderArchive(city = "All") {
         <span>${pad(visible.length)} projects</span>
       </header>
       <div class="archive-grid">${cards}</div>
+      <footer class="archive-footer">
+        <p>&copy; 2026 Stelvio J. All rights reserved.</p>
+        <p>Designed and built with Codex.</p>
+      </footer>
     </section>`;
 }
 
@@ -773,20 +777,31 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-15"),
-  fetch("assets/portfolio-preferences.json?v=20260807-15"),
-  fetch("assets/about-gallery.json?v=20260807-15"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-16"),
+  fetch("assets/portfolio-preferences.json?v=20260807-16"),
+  fetch("assets/about-gallery.json?v=20260807-16"),
+  fetch("assets/project-essays.json?v=20260807-16"),
 ])
-  .then(async ([dataResponse, preferencesResponse, aboutResponse]) => {
+  .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
     if (!preferencesResponse.ok) throw new Error(`Portfolio preferences returned ${preferencesResponse.status}`);
     if (!aboutResponse.ok) throw new Error(`About gallery returned ${aboutResponse.status}`);
-    return [await dataResponse.json(), await preferencesResponse.json(), await aboutResponse.json()];
+    if (!essaysResponse.ok) throw new Error(`Project essays returned ${essaysResponse.status}`);
+    return [
+      await dataResponse.json(),
+      await preferencesResponse.json(),
+      await aboutResponse.json(),
+      await essaysResponse.json(),
+    ];
   })
-  .then(([data, preferences, photography]) => {
+  .then(([data, preferences, photography, essays]) => {
+    const enrichedData = data.map((project) => ({
+      ...project,
+      description: essays[project.slug] || project.description,
+    }));
     publishedPreferences = preferences;
-    sourceProjects = data;
-    projects = applyPreferences(data);
+    sourceProjects = enrichedData;
+    projects = applyPreferences(enrichedData);
     aboutPhotos = photography;
     render();
   })
