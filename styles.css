@@ -660,6 +660,7 @@ body[data-view="contact"] #app {
 
 .about-view .profile-intro h1 {
   grid-column: 1;
+  align-self: center;
   justify-self: center;
   transform: translateX(calc(var(--gutter) / -2));
 }
