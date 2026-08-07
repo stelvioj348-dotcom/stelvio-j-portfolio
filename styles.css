@@ -380,7 +380,7 @@ body[data-view="contact"] #app {
 
 .archive-toolbar {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr;
   align-items: baseline;
   gap: 16px;
   margin: 0 0 28px;
@@ -396,12 +396,6 @@ body[data-view="contact"] #app {
 
 .archive-toolbar span {
   color: #8a8a86;
-}
-
-.archive-toolbar a {
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
 }
 
 .archive-grid {
@@ -748,8 +742,7 @@ body.lightbox-open { overflow: hidden !important; }
   outline-offset: 3px;
 }
 
-.archive-card a:focus-visible,
-.archive-toolbar a:focus-visible {
+.archive-card a:focus-visible {
   outline: 1px solid var(--ink);
   outline-offset: 3px;
 }
@@ -870,7 +863,6 @@ body.lightbox-open { overflow: hidden !important; }
 
   .archive-view { padding-top: 18px; }
   .archive-toolbar { grid-template-columns: auto 1fr; margin-bottom: 20px; }
-  .archive-toolbar a { grid-column: 1 / -1; }
   .archive-grid { display: block; }
   .archive-card,
   .archive-card:nth-child(6n + 2),

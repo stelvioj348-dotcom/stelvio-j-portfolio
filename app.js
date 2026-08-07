@@ -289,7 +289,6 @@ function renderArchive(city = "All") {
       <header class="archive-toolbar">
         <h1 id="archive-title">${escapeHtml(normalizedCity === "All" ? "Projects" : normalizedCity)}</h1>
         <span>${pad(visible.length)} projects</span>
-        <a href="editor.html">Edit covers & order</a>
       </header>
       <div class="archive-grid">${cards}</div>
     </section>`;
@@ -774,9 +773,9 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-10"),
-  fetch("assets/portfolio-preferences.json?v=20260807-10"),
-  fetch("assets/about-gallery.json?v=20260807-10"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-11"),
+  fetch("assets/portfolio-preferences.json?v=20260807-11"),
+  fetch("assets/about-gallery.json?v=20260807-11"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
