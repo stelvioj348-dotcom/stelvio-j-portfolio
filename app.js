@@ -40,18 +40,23 @@ let lightboxGestureMoved = false;
 let lightboxSwipeTriggered = false;
 let lightboxMultiTouchGesture = false;
 let lightboxDismissStart = null;
+let lightboxDismissTimer = null;
+let lightboxLastTap = null;
 const imageDecodeCache = new Map();
 let wheelAccumulator = 0;
 let wheelDirection = 0;
 let wheelLastEventTime = 0;
 let wheelLastStepTime = -Infinity;
 let homeAutoplayTimer = null;
+let homePointerIdleTimer = null;
+let lightboxClickTimer = null;
 let projectEntryPending = false;
 
 const wheelThreshold = 36;
 const wheelGestureResetMs = 180;
 const wheelStepGapMs = 160;
 const homeAutoplayDelay = 8000;
+const lightboxClickDelay = 520;
 
 const fluidCursor = document.createElement("div");
 fluidCursor.className = "fluid-cursor";
@@ -64,6 +69,8 @@ let cursorTargetY = 0;
 let cursorReady = false;
 let hoveredGalleryItem = null;
 let manualRouteTransition = null;
+let cursorMagnetControl = null;
+let cursorReleaseTimer = null;
 
 function cursorControlTarget(target) {
   if (!target) return null;
@@ -124,17 +131,27 @@ function prepareManualRouteTransition(source, targetSelector) {
 
   const morph = document.createElement("span");
   morph.className = "blue-route-morph";
-  if (source.matches(".back-link-bg")) {
+  if (targetSelector === "projects") {
+    const lineWidth = Math.max(sourceRect.width, window.innerWidth - sourceRect.left + 2);
+    morph.classList.add("blue-route-morph--line");
+    Object.assign(morph.style, {
+      top: `${sourceRect.top}px`,
+      left: `${sourceRect.left}px`,
+      width: `${lineWidth}px`,
+      height: `${sourceRect.height}px`,
+      "--route-line-start-scale": String(sourceRect.width / lineWidth),
+    });
+  } else {
     morph.classList.add("blue-route-morph--pill");
     morph.textContent = "← Projects";
+    Object.assign(morph.style, {
+      top: `${sourceRect.top}px`,
+      left: `${sourceRect.left}px`,
+      width: `${sourceRect.width}px`,
+      height: `${sourceRect.height}px`,
+      "--route-exit-x": `${window.innerWidth - sourceRect.left + sourceRect.width + 40}px`,
+    });
   }
-  Object.assign(morph.style, {
-    top: `${sourceRect.top}px`,
-    left: `${sourceRect.left}px`,
-    width: `${sourceRect.width}px`,
-    height: `${sourceRect.height}px`,
-    "--route-exit-x": `${window.innerWidth - sourceRect.left + sourceRect.width + 40}px`,
-  });
   document.body.append(frozen, morph);
   document.body.classList.add("manual-route-transition");
   manualRouteTransition = { frozen, morph, targetSelector };
@@ -143,28 +160,62 @@ function prepareManualRouteTransition(source, targetSelector) {
 function playManualRouteTransition() {
   const active = manualRouteTransition;
   if (!active) return;
+  const target = active.targetSelector === "brand"
+    ? brand.querySelector(".brand-line")
+    : app.querySelector(".back-link-bg");
+  if (!target) {
+    active.frozen.remove();
+    active.morph.remove();
+    manualRouteTransition = null;
+    document.body.classList.remove("manual-route-transition", "project-home-return");
+    return;
+  }
+
+  target.classList.add("route-target-reveal");
+  app.classList.add("route-content-entering");
+  document.body.classList.add("route-page-fading");
+
+  let arrival = null;
+  if (active.targetSelector === "projects") {
+    const targetRect = target.getBoundingClientRect();
+    arrival = document.createElement("span");
+    arrival.className = "blue-route-arrival";
+    Object.assign(arrival.style, {
+      top: `${targetRect.top + targetRect.height / 2 - 1}px`,
+      left: `${targetRect.right}px`,
+      width: `${Math.max(72, Math.min(110, targetRect.width))}px`,
+      height: "2px",
+    });
+    document.body.append(arrival);
+  }
+
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    const target = active.targetSelector === "brand"
-      ? brand.querySelector(".brand-line")
-      : app.querySelector(".back-link-bg");
-    if (!target) {
-      active.frozen.remove();
-      active.morph.remove();
-      manualRouteTransition = null;
-      document.body.classList.remove("manual-route-transition", "project-home-return");
-      return;
+    app.classList.add("is-visible");
+    if (active.targetSelector === "projects") {
+      active.morph.classList.add("is-extending");
+      window.setTimeout(() => active.frozen.classList.add("is-leaving"), 260);
+      window.setTimeout(() => active.morph.classList.add("is-exiting"), 440);
+      window.setTimeout(() => arrival?.classList.add("is-arriving"), 760);
+      window.setTimeout(() => {
+        arrival?.classList.add("is-fusing");
+        target.classList.add("is-entering");
+      }, 1240);
+    } else {
+      active.morph.classList.add("is-leaving");
+      window.setTimeout(() => active.frozen.classList.add("is-leaving"), 180);
+      window.setTimeout(() => target.classList.add("is-entering"), 520);
     }
-    target.classList.add("route-target-reveal");
-    active.morph.classList.add("is-leaving");
-    window.setTimeout(() => active.frozen.classList.add("is-leaving"), 360);
-    window.setTimeout(() => target.classList.add("is-entering"), 520);
+
+    const duration = active.targetSelector === "projects" ? 1820 : 1100;
     window.setTimeout(() => {
       active.frozen.remove();
       active.morph.remove();
+      arrival?.remove();
       target.classList.remove("route-target-reveal", "is-entering");
+      app.classList.remove("route-content-entering", "is-visible");
       if (manualRouteTransition === active) manualRouteTransition = null;
-      document.body.classList.remove("manual-route-transition", "project-home-return");
-    }, 1100);
+      document.body.classList.remove("manual-route-transition", "project-home-return", "route-page-fading");
+    }, duration);
   }));
 }
 
@@ -178,6 +229,7 @@ syncFluidCursorMode();
 
 window.addEventListener("pointermove", (event) => {
   if (!finePointerQuery.matches || event.pointerType === "touch") return;
+  deferHomeAutoplayForPointer();
   brand.classList.toggle("is-cursor-hovered", Boolean(event.target.closest?.(".brand")));
   const portrait = app.querySelector(".contact-portrait");
   portrait?.classList.toggle("is-cursor-hovered", Boolean(event.target.closest?.(".contact-portrait")));
@@ -219,6 +271,19 @@ window.addEventListener("pointermove", (event) => {
   fluidCursor.classList.add("is-visible");
   fluidCursor.classList.toggle("is-previous", isPrevious);
   fluidCursor.classList.toggle("is-next", isNext);
+  if (magnet) {
+    if (cursorReleaseTimer !== null) window.clearTimeout(cursorReleaseTimer);
+    cursorReleaseTimer = null;
+    fluidCursor.classList.remove("is-demagnetizing");
+  } else if (cursorMagnetControl) {
+    if (cursorReleaseTimer !== null) window.clearTimeout(cursorReleaseTimer);
+    fluidCursor.classList.add("is-demagnetizing");
+    cursorReleaseTimer = window.setTimeout(() => {
+      fluidCursor.classList.remove("is-demagnetizing");
+      cursorReleaseTimer = null;
+    }, 580);
+  }
+  cursorMagnetControl = magnet;
   fluidCursor.classList.toggle("is-magnetic", Boolean(magnet));
   fluidCursor.classList.toggle("is-over-projects", isOverProjects);
   renderFluidCursor();
@@ -237,7 +302,8 @@ document.documentElement.addEventListener("mouseleave", () => {
   app.querySelector(".contact-portrait")?.classList.remove("is-cursor-hovered");
   hoveredGalleryItem?.classList.remove("is-cursor-hovered");
   hoveredGalleryItem = null;
-  fluidCursor.classList.remove("is-visible", "is-magnetic", "is-previous", "is-next", "is-over-projects");
+  cursorMagnetControl = null;
+  fluidCursor.classList.remove("is-visible", "is-magnetic", "is-demagnetizing", "is-previous", "is-next", "is-over-projects");
 });
 
 const escapeHtml = (value) =>
@@ -295,6 +361,29 @@ function stopHomeAutoplay() {
   homeAutoplayTimer = null;
 }
 
+function deferHomeAutoplayForPointer() {
+  if (route().view !== "landing") return;
+  stopHomeAutoplay();
+  if (homePointerIdleTimer !== null) window.clearTimeout(homePointerIdleTimer);
+  homePointerIdleTimer = window.setTimeout(() => {
+    homePointerIdleTimer = null;
+    scheduleHomeAutoplay();
+  }, 400);
+}
+
+function clearPendingLightboxClick() {
+  if (lightboxClickTimer !== null) window.clearTimeout(lightboxClickTimer);
+  lightboxClickTimer = null;
+}
+
+function scheduleLightboxPage(step) {
+  clearPendingLightboxClick();
+  lightboxClickTimer = window.setTimeout(() => {
+    lightboxClickTimer = null;
+    if (lightboxScale === 1) moveLightbox(step);
+  }, lightboxClickDelay);
+}
+
 function scheduleHomeAutoplay() {
   stopHomeAutoplay();
   if (
@@ -308,30 +397,6 @@ function scheduleHomeAutoplay() {
     homeAutoplayTimer = null;
     if (!document.hidden && route().view === "landing") moveHome(1);
   }, homeAutoplayDelay);
-}
-
-function alignProjectBackLink() {
-  const link = app.querySelector(".viewer--project .back-link");
-  if (!link) return;
-  if (!window.matchMedia("(min-width: 721px)").matches) {
-    link.style.removeProperty("--project-back-offset");
-    return;
-  }
-
-  const image = app.querySelector(
-    ".viewer--project .viewer-media .viewer-image-frame:not(.media-carousel-outgoing) .viewer-image",
-  );
-  if (!image) return;
-  const currentOffset = Number.parseFloat(
-    link.style.getPropertyValue("--project-back-offset"),
-  ) || 0;
-  const imageRect = image.getBoundingClientRect();
-  const linkRect = link.getBoundingClientRect();
-  const linkBaseBottom = linkRect.bottom - currentOffset;
-  link.style.setProperty(
-    "--project-back-offset",
-    `${Math.round((imageRect.bottom - linkBaseBottom) * 10) / 10}px`,
-  );
 }
 
 function beginProjectEntry(href) {
@@ -877,11 +942,47 @@ function lightboxPointIsInsideImage(clientX, clientY) {
     && clientY <= rect.bottom;
 }
 
-function resetLightboxDismissVisual() {
+function resetLightboxDismissVisual(animate = false) {
   const lightbox = app.querySelector(".lightbox");
-  lightbox?.classList.remove("is-pulling-down");
-  lightbox?.style.removeProperty("--lightbox-pull-y");
   lightboxDismissStart = null;
+  if (lightboxDismissTimer !== null) window.clearTimeout(lightboxDismissTimer);
+  lightboxDismissTimer = null;
+  if (!lightbox) return;
+  if (animate && lightbox.classList.contains("is-pulling-down") && !lightbox.hidden) {
+    lightbox.classList.remove("is-pulling-down");
+    lightbox.classList.add("is-pull-releasing");
+    requestAnimationFrame(() => lightbox.style.setProperty("--lightbox-pull-y", "0px"));
+    lightboxDismissTimer = window.setTimeout(() => {
+      lightbox.classList.remove("is-pull-releasing");
+      lightbox.style.removeProperty("--lightbox-pull-y");
+      lightboxDismissTimer = null;
+    }, 280);
+    return;
+  }
+  lightbox.classList.remove("is-pulling-down", "is-pull-releasing", "is-pull-dismissing");
+  lightbox.style.removeProperty("--lightbox-pull-y");
+}
+
+function dismissLightboxDown() {
+  const lightbox = app.querySelector(".lightbox:not([hidden])");
+  if (!lightbox) return;
+  lightboxDismissStart = null;
+  lightboxPointers.clear();
+  lightboxDragStart = null;
+  lightboxPinchStart = null;
+  lightbox.classList.remove("is-pulling-down", "is-pull-releasing", "is-dragging");
+  lightbox.classList.add("is-pull-dismissing");
+  lightbox.style.setProperty("--lightbox-pull-y", `${Math.max(window.innerHeight, 640)}px`);
+  lightboxDismissTimer = window.setTimeout(() => {
+    lightboxDismissTimer = null;
+    closeLightbox();
+  }, 360);
+}
+
+function toggleLightboxZoomAt(clientX, clientY) {
+  settleLightboxForZoom();
+  if (lightboxScale > 1) resetLightboxTransform();
+  else zoomLightboxAt(2.25, clientX, clientY);
 }
 
 function clampLightboxPan(scale, panX, panY) {
@@ -944,6 +1045,7 @@ function zoomLightboxAt(scale, clientX, clientY) {
 }
 
 function resetLightboxTransform() {
+  clearPendingLightboxClick();
   resetLightboxDismissVisual();
   app.querySelectorAll(".lightbox-stage img").forEach((image) => image.style.removeProperty("transform"));
   app.querySelector(".lightbox")?.classList.remove("is-zoomed", "is-dragging");
@@ -1163,8 +1265,6 @@ function renderProject(slug) {
     </article>
     ${lightboxMarkup(`${project.title} photograph viewer`)}`;
 
-  alignProjectBackLink();
-
   projectEntryPending = false;
 
   preloadAround(project.images, photoIndex, (item) => item.src);
@@ -1351,7 +1451,6 @@ function movePhoto(step) {
     photoIndex = nextIndex;
     photoTargetIndex = null;
     preloadAround(project.images, photoIndex, (item) => item.src);
-    alignProjectBackLink();
     transitionLocked = false;
   };
   incoming.addEventListener("transitionend", finish, { once: true });
@@ -1431,10 +1530,14 @@ app.addEventListener("click", (event) => {
   if (["lightbox-previous", "lightbox-next"].includes(control.dataset.action)) {
     event.preventDefault();
     control.blur();
-    if (event.detail > 1) return;
+    if (event.detail > 1) {
+      clearPendingLightboxClick();
+      return;
+    }
     const step = control.dataset.action === "lightbox-next" ? 1 : -1;
     if (event.detail > 0 && lightboxPointIsInsideImage(event.clientX, event.clientY)) return;
-    moveLightbox(step);
+    if (event.detail === 0) moveLightbox(step);
+    else scheduleLightboxPage(step);
     return;
   }
   const actions = {
@@ -1458,11 +1561,10 @@ app.addEventListener("dblclick", (event) => {
   const lightbox = event.target.closest(".lightbox");
   if (!lightbox || lightbox.hidden || event.target.closest(".lightbox-close")) return;
   if (window.matchMedia("(pointer: coarse)").matches) return;
+  clearPendingLightboxClick();
   if (!lightboxPointIsInsideImage(event.clientX, event.clientY)) return;
   event.preventDefault();
-  settleLightboxForZoom();
-  if (lightboxScale > 1) resetLightboxTransform();
-  else zoomLightboxAt(2.25, event.clientX, event.clientY);
+  toggleLightboxZoomAt(event.clientX, event.clientY);
 });
 
 app.addEventListener("animationend", (event) => {
@@ -1509,8 +1611,6 @@ app.addEventListener("pointerdown", (event) => {
       event.pointerType === "touch"
       && window.matchMedia("(max-width: 720px)").matches
       && lightboxScale === 1
-      && Boolean(event.target.closest(".lightbox-stage"))
-      && !event.target.closest(".lightbox-stage img")
     ) ? {
       pointerId: event.pointerId,
       x: event.clientX,
@@ -1527,6 +1627,7 @@ app.addEventListener("pointerdown", (event) => {
   } else if (lightboxPointers.size === 2) {
     lightboxMultiTouchGesture = true;
     lightboxGestureMoved = true;
+    lightboxLastTap = null;
     resetLightboxDismissVisual();
     const [first, second] = [...lightboxPointers.values()];
     lightboxPinchStart = {
@@ -1598,6 +1699,7 @@ app.addEventListener("pointermove", (event) => {
   ) {
     event.preventDefault();
     lightboxGestureMoved = true;
+    lightboxLastTap = null;
     const lightbox = app.querySelector(".lightbox:not([hidden])");
     lightbox?.classList.add("is-pulling-down");
     lightbox?.style.setProperty("--lightbox-pull-y", `${Math.min(180, deltaY * 0.72)}px`);
@@ -1613,12 +1715,16 @@ app.addEventListener("pointermove", (event) => {
   ) {
     event.preventDefault();
     lightboxGestureMoved = true;
+    lightboxLastTap = null;
     lightboxSwipeTriggered = true;
     moveLightbox(deltaX < 0 ? 1 : -1);
     return;
   }
   if (lightboxScale > 1) {
-    if (Math.hypot(deltaX, deltaY) > 6) lightboxGestureMoved = true;
+    if (Math.hypot(deltaX, deltaY) > 6) {
+      lightboxGestureMoved = true;
+      lightboxLastTap = null;
+    }
     event.preventDefault();
     applyLightboxTransform(
       lightboxScale,
@@ -1660,13 +1766,43 @@ function finishLightboxPointer(event, allowSwipe) {
   lightboxPointers.delete(event.pointerId);
 
   if (allowSwipe && dismissIntent && dismissDeltaY >= 96) {
-    closeLightbox();
+    lightboxLastTap = null;
+    dismissLightboxDown();
     return;
   }
-  if (dismiss) resetLightboxDismissVisual();
+  if (dismiss) resetLightboxDismissVisual(dismissIntent);
+
+  const tapDistance = point && drag ? Math.hypot(point.x - drag.x, point.y - drag.y) : Infinity;
+  const isTouchTap = Boolean(
+    allowSwipe
+    && event.pointerType === "touch"
+    && !dismissIntent
+    && !lightboxMultiTouchGesture
+    && tapDistance < 10
+    && point
+    && lightboxPointIsInsideImage(point.x, point.y)
+  );
+  if (isTouchTap) {
+    const now = performance.now();
+    const isDoubleTap = Boolean(
+      lightboxLastTap
+      && now - lightboxLastTap.time < 340
+      && Math.hypot(point.x - lightboxLastTap.x, point.y - lightboxLastTap.y) < 32
+    );
+    if (isDoubleTap) {
+      lightboxLastTap = null;
+      lightboxGestureMoved = true;
+      toggleLightboxZoomAt(point.x, point.y);
+    } else {
+      lightboxLastTap = { time: now, x: point.x, y: point.y };
+    }
+  } else if (event.pointerType === "touch" && tapDistance >= 10) {
+    lightboxLastTap = null;
+  }
 
   if (
     allowSwipe
+    && !isTouchTap
     && !dismissIntent
     && !lightboxMultiTouchGesture
     && !lightboxSwipeTriggered
@@ -1696,7 +1832,7 @@ function finishLightboxPointer(event, allowSwipe) {
     lightboxDragStart = null;
     lightboxPinchStart = null;
     app.querySelector(".lightbox")?.classList.remove("is-dragging");
-    resetLightboxDismissVisual();
+    if (!dismiss) resetLightboxDismissVisual();
     window.setTimeout(() => {
       lightboxGestureMoved = false;
       lightboxMultiTouchGesture = false;
@@ -1758,16 +1894,9 @@ function renderRouteTransition() {
 window.addEventListener("hashchange", renderRouteTransition);
 window.addEventListener("resize", () => {
   syncHomePagingCues();
-  alignProjectBackLink();
 });
-app.addEventListener("load", (event) => {
-  if (event.target.matches?.(".viewer--project .viewer-image")) {
-    requestAnimationFrame(alignProjectBackLink);
-  }
-}, true);
 document.addEventListener("fullscreenchange", () => {
   syncFullscreenControls();
-  requestAnimationFrame(alignProjectBackLink);
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stopHomeAutoplay();
@@ -1809,13 +1938,13 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-70"),
-  fetch("assets/portfolio-preferences.json?v=20260807-70"),
-  fetch("assets/about-gallery.json?v=20260807-70"),
-  fetch("assets/project-essays.json?v=20260807-70"),
-  fetch("assets/project-equipment.json?v=20260807-70"),
-  fetch("assets/project-hq.json?v=20260807-70"),
-  fetch("assets/project-cover-images.json?v=20260807-70"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-71"),
+  fetch("assets/portfolio-preferences.json?v=20260807-71"),
+  fetch("assets/about-gallery.json?v=20260807-71"),
+  fetch("assets/project-essays.json?v=20260807-71"),
+  fetch("assets/project-equipment.json?v=20260807-71"),
+  fetch("assets/project-hq.json?v=20260807-71"),
+  fetch("assets/project-cover-images.json?v=20260807-71"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse, hqResponse, coversResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
