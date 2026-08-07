@@ -54,6 +54,100 @@ const wheelStepGapMs = 160;
 const homeAutoplayDelay = 8000;
 const lightboxClickDelay = 280;
 
+const fluidCursor = document.createElement("div");
+fluidCursor.className = "fluid-cursor";
+fluidCursor.setAttribute("aria-hidden", "true");
+document.body.append(fluidCursor);
+
+const finePointerQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
+let cursorX = 0;
+let cursorY = 0;
+let cursorTargetX = 0;
+let cursorTargetY = 0;
+let cursorVelocityX = 0;
+let cursorVelocityY = 0;
+let cursorReady = false;
+
+function cursorMagnetTarget(target) {
+  const control = target.closest?.("a, button, [role='button']");
+  if (!control) return null;
+  if (control.matches(".brand, .viewer-arrow, .lightbox-arrow, .viewer-media--link")) return null;
+  if (control.closest(".archive-card, .about-photo")) return null;
+  return control;
+}
+
+function renderFluidCursor() {
+  if (finePointerQuery.matches && cursorReady) {
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) {
+      cursorX = cursorTargetX;
+      cursorY = cursorTargetY;
+      cursorVelocityX = 0;
+      cursorVelocityY = 0;
+    } else {
+      const nextX = cursorX + (cursorTargetX - cursorX) * 0.15;
+      const nextY = cursorY + (cursorTargetY - cursorY) * 0.15;
+      cursorVelocityX = nextX - cursorX;
+      cursorVelocityY = nextY - cursorY;
+      cursorX = nextX;
+      cursorY = nextY;
+    }
+    const speed = Math.hypot(cursorVelocityX, cursorVelocityY);
+    const shaped = fluidCursor.classList.contains("is-previous")
+      || fluidCursor.classList.contains("is-next")
+      || fluidCursor.classList.contains("is-magnetic");
+    const stretch = reduceMotion || shaped ? 1 : Math.min(1.62, 1 + speed * 0.026);
+    const angle = shaped ? 0 : Math.atan2(cursorVelocityY, cursorVelocityX) * 180 / Math.PI;
+    fluidCursor.style.transform = `translate3d(${cursorX}px, ${cursorY}px, 0) translate(-50%, -50%) rotate(${angle}deg) scale(${stretch}, ${1 / stretch})`;
+  }
+  requestAnimationFrame(renderFluidCursor);
+}
+
+function syncFluidCursorMode() {
+  document.body.classList.toggle("fluid-cursor-enabled", finePointerQuery.matches);
+  if (!finePointerQuery.matches) fluidCursor.classList.remove("is-visible", "is-magnetic", "is-pressed");
+}
+
+finePointerQuery.addEventListener?.("change", syncFluidCursorMode);
+syncFluidCursorMode();
+requestAnimationFrame(renderFluidCursor);
+
+window.addEventListener("pointermove", (event) => {
+  if (!finePointerQuery.matches || event.pointerType === "touch") return;
+  const action = event.target.closest?.("[data-action]")?.dataset.action || "";
+  const isPrevious = action.endsWith("previous");
+  const isNext = action.endsWith("next");
+  const magnet = !isPrevious && !isNext ? cursorMagnetTarget(event.target) : null;
+  if (magnet) {
+    const rect = magnet.getBoundingClientRect();
+    const isProjectCapsule = magnet.matches(".back-link");
+    cursorTargetX = rect.left + rect.width / 2;
+    cursorTargetY = rect.top + rect.height / 2;
+    fluidCursor.style.setProperty("--cursor-magnet-width", `${Math.max(24, rect.width + (isProjectCapsule ? 0 : 18))}px`);
+    fluidCursor.style.setProperty("--cursor-magnet-height", `${Math.max(24, rect.height)}px`);
+  } else {
+    cursorTargetX = event.clientX;
+    cursorTargetY = event.clientY;
+  }
+  if (!cursorReady) {
+    cursorX = cursorTargetX;
+    cursorY = cursorTargetY;
+    cursorReady = true;
+  }
+  fluidCursor.classList.add("is-visible");
+  fluidCursor.classList.toggle("is-previous", isPrevious);
+  fluidCursor.classList.toggle("is-next", isNext);
+  fluidCursor.classList.toggle("is-magnetic", Boolean(magnet));
+});
+
+window.addEventListener("pointerdown", (event) => {
+  if (finePointerQuery.matches && event.pointerType !== "touch") fluidCursor.classList.add("is-pressed");
+});
+window.addEventListener("pointerup", () => fluidCursor.classList.remove("is-pressed"));
+document.documentElement.addEventListener("mouseleave", () => {
+  fluidCursor.classList.remove("is-visible", "is-magnetic", "is-previous", "is-next");
+});
+
 const escapeHtml = (value) =>
   String(value)
     .replaceAll("&", "&amp;")
@@ -174,7 +268,7 @@ function beginProjectEntry(href) {
   document.body.classList.add("home-project-exit");
   window.setTimeout(() => {
     window.location.hash = href.replace(/^#/, "");
-  }, 320);
+  }, 1400);
 }
 
 const architectWebsiteRules = [
@@ -206,7 +300,8 @@ const architectWebsiteRules = [
   ["Zaha Hadid", "https://www.zha.com/"],
 ];
 
-function architectCredit(name) {
+function architectCredit(name, projectSlug = "") {
+  if (projectSlug === "huanglong-mountain-zisha-museum") return escapeHtml(name);
   const website = architectWebsiteRules.find(([label]) => name.includes(label))?.[1];
   const credit = escapeHtml(name);
   return website
@@ -238,7 +333,7 @@ function applyPreferenceSet(data, preferences = {}) {
   return ordered.map((project) => {
     const selected = project.images.find((image) => image.src === preferences.covers?.[project.slug]);
     return selected
-      ? { ...project, coverSrc: selected.src, coverWidth: selected.width, coverHeight: selected.height }
+      ? { ...project, coverSrc: selected.src, coverProjectSrc: selected.src, coverWidth: selected.width, coverHeight: selected.height }
       : { ...project };
   });
 }
@@ -442,7 +537,7 @@ function landingStageMarkup(index) {
         <h1 id="project-title"><a href="#project/${project.slug}">${escapeHtml(project.title)}</a></h1>
         <dl class="project-meta">
           <dt>Architect</dt>
-          <dd>${architectCredit(project.architect)}</dd>
+          <dd>${architectCredit(project.architect, project.slug)}</dd>
           <dt>City</dt>
           <dd>${escapeHtml(project.city)}</dd>
           <dt>Photographed</dt>
@@ -550,6 +645,7 @@ function lightboxPhotoFrame(photo, index, className = "") {
       <img
         src="${photo.preview || photo.full}"
         data-full-src="${photo.full}"
+        draggable="false"
         width="${photo.width}"
         height="${photo.height}"
         alt="${escapeHtml(alt)}"
@@ -683,8 +779,12 @@ function clampLightboxPan(scale, panX, panY) {
   const image = activeLightboxImage();
   const stage = app.querySelector(".lightbox:not([hidden]) .lightbox-stage");
   if (!image || !stage) return { x: 0, y: 0 };
-  const maxX = Math.max(0, (image.offsetWidth * scale - stage.clientWidth) / 2);
-  const maxY = Math.max(0, (image.offsetHeight * scale - stage.clientHeight) / 2);
+  const scaledWidth = image.offsetWidth * scale;
+  const scaledHeight = image.offsetHeight * scale;
+  const freePanX = scale > 1 ? Math.min(stage.clientWidth * 0.16, scaledWidth * 0.12) : 0;
+  const freePanY = scale > 1 ? Math.min(stage.clientHeight * 0.16, scaledHeight * 0.12) : 0;
+  const maxX = Math.max(freePanX, (scaledWidth - stage.clientWidth) / 2);
+  const maxY = Math.max(freePanY, (scaledHeight - stage.clientHeight) / 2);
   return {
     x: Math.max(-maxX, Math.min(maxX, panX)),
     y: Math.max(-maxY, Math.min(maxY, panY)),
@@ -907,7 +1007,7 @@ function renderProject(slug) {
     return;
   }
 
-  const coverIndex = project.images.findIndex((image) => image.src === project.coverSrc);
+  const coverIndex = project.images.findIndex((image) => image.src === (project.coverProjectSrc || project.coverSrc));
   photoIndex = coverIndex >= 0 ? coverIndex : 0;
   activeProjectSlug = slug;
   photoTargetIndex = null;
@@ -926,7 +1026,7 @@ function renderProject(slug) {
           <h1 id="project-title">${escapeHtml(project.title)}</h1>
           <dl class="project-meta">
             <dt>Architect</dt>
-            <dd>${architectCredit(project.architect)}</dd>
+            <dd>${architectCredit(project.architect, project.slug)}</dd>
             <dt>City</dt>
             <dd>${escapeHtml(project.city)}</dd>
             <dt>Photographed</dt>
@@ -950,6 +1050,8 @@ function renderProject(slug) {
     </article>
     ${lightboxMarkup(`${project.title} photograph viewer`)}`;
 
+  alignProjectBackLink();
+
   if (projectEntryPending) {
     document.body.classList.remove("home-project-exit");
     document.body.classList.add("project-entry-arrival");
@@ -963,7 +1065,6 @@ function renderProject(slug) {
 
   preloadAround(project.images, photoIndex, (item) => item.src);
   syncFullscreenControls();
-  requestAnimationFrame(() => requestAnimationFrame(alignProjectBackLink));
 }
 
 function retargetCarouselLayer(layer, removeClasses, addClasses) {
@@ -1305,8 +1406,9 @@ app.addEventListener("pointerdown", (event) => {
   const lightbox = event.target.closest(".lightbox");
   if (!lightbox || lightbox.hidden || event.target.closest(".lightbox-close")) return;
   if (event.pointerType === "mouse" && event.button !== 0) return;
+  if (lightboxScale > 1) event.preventDefault();
   lightboxPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-  event.target.setPointerCapture?.(event.pointerId);
+  lightbox.querySelector(".lightbox-stage")?.setPointerCapture?.(event.pointerId);
   lightboxGestureMoved = false;
   lightboxSwipeTriggered = false;
 
@@ -1331,6 +1433,10 @@ app.addEventListener("pointerdown", (event) => {
     };
     lightbox.classList.add("is-dragging");
   }
+});
+
+app.addEventListener("dragstart", (event) => {
+  if (event.target.closest?.(".lightbox-stage img")) event.preventDefault();
 });
 
 app.addEventListener("pointerdown", (event) => {
@@ -1531,20 +1637,22 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-50"),
-  fetch("assets/portfolio-preferences.json?v=20260807-50"),
-  fetch("assets/about-gallery.json?v=20260807-50"),
-  fetch("assets/project-essays.json?v=20260807-50"),
-  fetch("assets/project-equipment.json?v=20260807-50"),
-  fetch("assets/project-hq.json?v=20260807-50"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-57"),
+  fetch("assets/portfolio-preferences.json?v=20260807-57"),
+  fetch("assets/about-gallery.json?v=20260807-57"),
+  fetch("assets/project-essays.json?v=20260807-57"),
+  fetch("assets/project-equipment.json?v=20260807-57"),
+  fetch("assets/project-hq.json?v=20260807-57"),
+  fetch("assets/project-cover-images.json?v=20260807-57"),
 ])
-  .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse, hqResponse]) => {
+  .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse, hqResponse, coversResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
     if (!preferencesResponse.ok) throw new Error(`Portfolio preferences returned ${preferencesResponse.status}`);
     if (!aboutResponse.ok) throw new Error(`About gallery returned ${aboutResponse.status}`);
     if (!essaysResponse.ok) throw new Error(`Project essays returned ${essaysResponse.status}`);
     if (!equipmentResponse.ok) throw new Error(`Project equipment returned ${equipmentResponse.status}`);
     if (!hqResponse.ok) throw new Error(`High-resolution photographs returned ${hqResponse.status}`);
+    if (!coversResponse.ok) throw new Error(`Project cover images returned ${coversResponse.status}`);
     return [
       await dataResponse.json(),
       await preferencesResponse.json(),
@@ -1552,11 +1660,13 @@ Promise.all([
       await essaysResponse.json(),
       await equipmentResponse.json(),
       await hqResponse.json(),
+      await coversResponse.json(),
     ];
   })
-  .then(([data, preferences, photography, essays, equipment, highResolution]) => {
+  .then(([data, preferences, photography, essays, equipment, highResolution, coverImages]) => {
     const enrichedData = data.map((project) => ({
       ...project,
+      coverProjectSrc: coverImages[project.slug] || project.images[0]?.src,
       images: project.images.map((image, index) => ({
         ...image,
         full: highResolution[project.slug]?.[index]?.src || image.src,
