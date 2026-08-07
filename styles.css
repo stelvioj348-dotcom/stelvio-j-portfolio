@@ -58,6 +58,7 @@ button { padding: 0; border: 0; background: transparent; }
   align-items: center;
   gap: 32px;
   min-width: 0;
+  transform: translateY(9px);
 }
 
 .brand {
@@ -83,6 +84,7 @@ button { padding: 0; border: 0; background: transparent; }
   margin-left: 48px;
   scrollbar-width: none;
   white-space: nowrap;
+  transform: translateY(9px);
 }
 
 .city-nav::-webkit-scrollbar { display: none; }
@@ -264,7 +266,7 @@ button { padding: 0; border: 0; background: transparent; }
 .project-meta,
 .back-link { max-width: 34ch; }
 
-.project-description { max-width: 44ch; }
+.project-description { max-width: 56ch; }
 
 .viewer-kicker { margin: 0 0 12px; color: #8a8a86; }
 
@@ -805,6 +807,9 @@ body.lightbox-open { overflow: hidden !important; }
     margin: 13px 0 0;
     padding-bottom: 5px;
   }
+
+  .identity-nav,
+  .city-nav { transform: none; }
 
   .viewer-stage {
     display: grid;
