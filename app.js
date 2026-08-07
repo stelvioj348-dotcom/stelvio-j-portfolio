@@ -39,6 +39,14 @@ let lightboxPinchStart = null;
 let lightboxGestureMoved = false;
 let lightboxSwipeTriggered = false;
 const imageDecodeCache = new Map();
+let wheelAccumulator = 0;
+let wheelDirection = 0;
+let wheelLastEventTime = 0;
+let wheelLastStepTime = -Infinity;
+
+const wheelThreshold = 36;
+const wheelGestureResetMs = 180;
+const wheelStepGapMs = 160;
 
 const escapeHtml = (value) =>
   String(value)
@@ -49,6 +57,46 @@ const escapeHtml = (value) =>
     .replaceAll("'", "&#039;");
 
 const pad = (value) => String(value).padStart(2, "0");
+
+function resetWheelNavigation() {
+  wheelAccumulator = 0;
+  wheelDirection = 0;
+  wheelLastEventTime = 0;
+  wheelLastStepTime = -Infinity;
+}
+
+function wheelNavigationStep(event) {
+  const rawDelta = Math.abs(event.deltaY) >= Math.abs(event.deltaX)
+    ? event.deltaY
+    : event.deltaX;
+  if (!Number.isFinite(rawDelta) || rawDelta === 0) return 0;
+
+  const pageSize = Math.max(1, window.innerHeight);
+  const delta = event.deltaMode === WheelEvent.DOM_DELTA_LINE
+    ? rawDelta * 16
+    : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+      ? rawDelta * pageSize
+      : rawDelta;
+  const now = performance.now();
+  const nextDirection = Math.sign(delta);
+
+  if (now - wheelLastEventTime > wheelGestureResetMs || nextDirection !== wheelDirection) {
+    wheelAccumulator = 0;
+  }
+  wheelLastEventTime = now;
+  wheelDirection = nextDirection;
+  wheelAccumulator += delta;
+
+  if (Math.abs(wheelAccumulator) < wheelThreshold) return 0;
+  if (now - wheelLastStepTime < wheelStepGapMs) {
+    wheelAccumulator = nextDirection * wheelThreshold;
+    return 0;
+  }
+
+  wheelAccumulator = 0;
+  wheelLastStepTime = now;
+  return nextDirection;
+}
 
 const architectWebsiteRules = [
   ["Modum Atelier", "https://studiomodum.com/home"],
@@ -609,6 +657,7 @@ function openLightbox(index, mode = "about") {
   lightboxLocked = false;
   lightboxMode = mode;
   lightboxGestureMoved = false;
+  resetWheelNavigation();
   const photos = lightboxPhotos();
   const lightbox = app.querySelector(".lightbox");
   if (!lightbox || !photos.length) return;
@@ -641,6 +690,7 @@ function closeLightbox() {
   lightboxGestureMoved = false;
   lightbox.hidden = true;
   lightboxLocked = false;
+  resetWheelNavigation();
   document.body.classList.remove("lightbox-open");
   lightboxReturnFocus?.focus?.({ preventScroll: true });
   lightboxReturnFocus = null;
@@ -986,6 +1036,7 @@ function render() {
   transitionLocked = false;
   document.body.classList.remove("lightbox-open");
   lightboxLocked = false;
+  resetWheelNavigation();
   const current = route();
   direction = "next";
   if (current.view === "project") renderProject(current.value);
@@ -1036,10 +1087,27 @@ app.addEventListener("animationend", (event) => {
 
 app.addEventListener("wheel", (event) => {
   const lightbox = event.target.closest(".lightbox");
-  if (!lightbox || lightbox.hidden || lightboxLocked || event.target.closest(".lightbox-close")) return;
+  if (lightbox && !lightbox.hidden) {
+    if (event.target.closest(".lightbox-close")) return;
+    event.preventDefault();
+
+    if (lightboxScale > 1 || event.ctrlKey || event.metaKey) {
+      if (lightboxLocked) return;
+      const factor = Math.exp(-event.deltaY * 0.0015);
+      zoomLightboxAt(lightboxScale * factor, event.clientX, event.clientY);
+      return;
+    }
+
+    const step = wheelNavigationStep(event);
+    if (step) moveLightbox(step);
+    return;
+  }
+
+  const current = route();
+  if (!["landing", "project"].includes(current.view) || !event.target.closest(".viewer")) return;
   event.preventDefault();
-  const factor = Math.exp(-event.deltaY * 0.0015);
-  zoomLightboxAt(lightboxScale * factor, event.clientX, event.clientY);
+  const step = wheelNavigationStep(event);
+  if (step) moveCurrent(step);
 }, { passive: false });
 
 app.addEventListener("pointerdown", (event) => {
@@ -1257,11 +1325,11 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-37"),
-  fetch("assets/portfolio-preferences.json?v=20260807-37"),
-  fetch("assets/about-gallery.json?v=20260807-37"),
-  fetch("assets/project-essays.json?v=20260807-37"),
-  fetch("assets/project-equipment.json?v=20260807-37"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-38"),
+  fetch("assets/portfolio-preferences.json?v=20260807-38"),
+  fetch("assets/about-gallery.json?v=20260807-38"),
+  fetch("assets/project-essays.json?v=20260807-38"),
+  fetch("assets/project-equipment.json?v=20260807-38"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
