@@ -60,15 +60,12 @@ fluidCursor.setAttribute("aria-hidden", "true");
 document.body.append(fluidCursor);
 
 const finePointerQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
-let cursorX = 0;
-let cursorY = 0;
 let cursorTargetX = 0;
 let cursorTargetY = 0;
-let cursorVelocityX = 0;
-let cursorVelocityY = 0;
 let cursorReady = false;
 
-function cursorMagnetTarget(target) {
+function cursorControlTarget(target) {
+  if (!target) return null;
   const control = target.closest?.("a, button, [role='button']");
   if (!control) return null;
   if (control.matches(".brand, .viewer-arrow, .lightbox-arrow, .viewer-media--link")) return null;
@@ -76,68 +73,85 @@ function cursorMagnetTarget(target) {
   return control;
 }
 
+function nearbyCursorControl(x, y, directTarget) {
+  const radius = 16;
+  const diagonal = radius * 0.72;
+  const offsets = [
+    [0, 0], [radius, 0], [-radius, 0], [0, radius], [0, -radius],
+    [diagonal, diagonal], [diagonal, -diagonal], [-diagonal, diagonal], [-diagonal, -diagonal],
+  ];
+  const controls = new Set();
+  const direct = cursorControlTarget(directTarget);
+  if (direct) controls.add(direct);
+  offsets.forEach(([offsetX, offsetY]) => {
+    const candidate = cursorControlTarget(document.elementFromPoint(x + offsetX, y + offsetY));
+    if (candidate) controls.add(candidate);
+  });
+
+  let nearest = null;
+  controls.forEach((control) => {
+    const rect = control.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return;
+    const closestX = Math.max(rect.left, Math.min(rect.right, x));
+    const closestY = Math.max(rect.top, Math.min(rect.bottom, y));
+    const distance = Math.hypot(x - closestX, y - closestY);
+    if (distance > radius || (nearest && distance >= nearest.distance)) return;
+    nearest = { control, rect, distance, radius };
+  });
+  return nearest;
+}
+
 function renderFluidCursor() {
-  if (finePointerQuery.matches && cursorReady) {
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduceMotion) {
-      cursorX = cursorTargetX;
-      cursorY = cursorTargetY;
-      cursorVelocityX = 0;
-      cursorVelocityY = 0;
-    } else {
-      const nextX = cursorX + (cursorTargetX - cursorX) * 0.15;
-      const nextY = cursorY + (cursorTargetY - cursorY) * 0.15;
-      cursorVelocityX = nextX - cursorX;
-      cursorVelocityY = nextY - cursorY;
-      cursorX = nextX;
-      cursorY = nextY;
-    }
-    const speed = Math.hypot(cursorVelocityX, cursorVelocityY);
-    const shaped = fluidCursor.classList.contains("is-previous")
-      || fluidCursor.classList.contains("is-next")
-      || fluidCursor.classList.contains("is-magnetic");
-    const stretch = reduceMotion || shaped ? 1 : Math.min(1.62, 1 + speed * 0.026);
-    const angle = shaped ? 0 : Math.atan2(cursorVelocityY, cursorVelocityX) * 180 / Math.PI;
-    fluidCursor.style.transform = `translate3d(${cursorX}px, ${cursorY}px, 0) translate(-50%, -50%) rotate(${angle}deg) scale(${stretch}, ${1 / stretch})`;
-  }
-  requestAnimationFrame(renderFluidCursor);
+  if (!finePointerQuery.matches || !cursorReady) return;
+  fluidCursor.style.transform = `translate3d(${cursorTargetX}px, ${cursorTargetY}px, 0) translate(-50%, -50%)`;
 }
 
 function syncFluidCursorMode() {
   document.body.classList.toggle("fluid-cursor-enabled", finePointerQuery.matches);
-  if (!finePointerQuery.matches) fluidCursor.classList.remove("is-visible", "is-magnetic", "is-pressed");
+  if (!finePointerQuery.matches) fluidCursor.classList.remove("is-visible", "is-magnetic", "is-pressed", "is-over-projects");
 }
 
 finePointerQuery.addEventListener?.("change", syncFluidCursorMode);
 syncFluidCursorMode();
-requestAnimationFrame(renderFluidCursor);
 
 window.addEventListener("pointermove", (event) => {
   if (!finePointerQuery.matches || event.pointerType === "touch") return;
+  brand.classList.toggle("is-cursor-hovered", Boolean(event.target.closest?.(".brand")));
+  const portrait = app.querySelector(".contact-portrait");
+  portrait?.classList.toggle("is-cursor-hovered", Boolean(event.target.closest?.(".contact-portrait")));
+  const nearby = nearbyCursorControl(event.clientX, event.clientY, event.target);
   const action = event.target.closest?.("[data-action]")?.dataset.action || "";
-  const isPrevious = action.endsWith("previous");
-  const isNext = action.endsWith("next");
-  const magnet = !isPrevious && !isNext ? cursorMagnetTarget(event.target) : null;
-  if (magnet) {
-    const rect = magnet.getBoundingClientRect();
-    const isProjectCapsule = magnet.matches(".back-link");
+  const isPrevious = !nearby && action.endsWith("previous");
+  const isNext = !nearby && action.endsWith("next");
+  const magnet = nearby?.control && !nearby.control.matches(".back-link") ? nearby.control : null;
+  const isNearProjects = Boolean(nearby?.control?.matches(".back-link"));
+  const isOverProjects = isNearProjects && nearby.distance === 0;
+  if (magnet && nearby) {
+    const { rect } = nearby;
+    const isProjectTitle = Boolean(magnet.closest(".viewer-caption h1"));
     cursorTargetX = rect.left + rect.width / 2;
     cursorTargetY = rect.top + rect.height / 2;
-    fluidCursor.style.setProperty("--cursor-magnet-width", `${Math.max(24, rect.width + (isProjectCapsule ? 0 : 18))}px`);
-    fluidCursor.style.setProperty("--cursor-magnet-height", `${Math.max(24, rect.height)}px`);
+    fluidCursor.style.setProperty("--cursor-magnet-width", `${Math.max(24, rect.width + (isProjectTitle ? 28 : 18))}px`);
+    fluidCursor.style.setProperty("--cursor-magnet-height", `${Math.max(24, rect.height + (isProjectTitle ? 10 : 0))}px`);
+  } else if (isNearProjects && nearby) {
+    const centerX = nearby.rect.left + nearby.rect.width / 2;
+    const centerY = nearby.rect.top + nearby.rect.height / 2;
+    const attraction = Math.max(0, 1 - nearby.distance / nearby.radius) * 0.48;
+    cursorTargetX = event.clientX + (centerX - event.clientX) * attraction;
+    cursorTargetY = event.clientY + (centerY - event.clientY) * attraction;
   } else {
     cursorTargetX = event.clientX;
     cursorTargetY = event.clientY;
   }
   if (!cursorReady) {
-    cursorX = cursorTargetX;
-    cursorY = cursorTargetY;
     cursorReady = true;
   }
   fluidCursor.classList.add("is-visible");
   fluidCursor.classList.toggle("is-previous", isPrevious);
   fluidCursor.classList.toggle("is-next", isNext);
   fluidCursor.classList.toggle("is-magnetic", Boolean(magnet));
+  fluidCursor.classList.toggle("is-over-projects", isOverProjects);
+  renderFluidCursor();
 });
 
 window.addEventListener("pointerdown", (event) => {
@@ -145,7 +159,9 @@ window.addEventListener("pointerdown", (event) => {
 });
 window.addEventListener("pointerup", () => fluidCursor.classList.remove("is-pressed"));
 document.documentElement.addEventListener("mouseleave", () => {
-  fluidCursor.classList.remove("is-visible", "is-magnetic", "is-previous", "is-next");
+  brand.classList.remove("is-cursor-hovered");
+  app.querySelector(".contact-portrait")?.classList.remove("is-cursor-hovered");
+  fluidCursor.classList.remove("is-visible", "is-magnetic", "is-previous", "is-next", "is-over-projects");
 });
 
 const escapeHtml = (value) =>
@@ -256,6 +272,14 @@ function alignProjectBackLink() {
   );
 }
 
+function syncBrandLineMetrics() {
+  const brandRect = brand.getBoundingClientRect();
+  const gutter = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--gutter")) || 0;
+  const lineWidth = Math.max(brandRect.width, window.innerWidth - brandRect.left - gutter);
+  brand.style.setProperty("--brand-line-width", `${lineWidth}px`);
+  brand.style.setProperty("--brand-line-start-scale", String(Math.min(1, brandRect.width / lineWidth)));
+}
+
 function beginProjectEntry(href) {
   if (projectEntryPending || !href) return;
   stopHomeAutoplay();
@@ -265,10 +289,11 @@ function beginProjectEntry(href) {
   }
 
   projectEntryPending = true;
+  syncBrandLineMetrics();
   document.body.classList.add("home-project-exit");
   window.setTimeout(() => {
     window.location.hash = href.replace(/^#/, "");
-  }, 1400);
+  }, 1240);
 }
 
 const architectWebsiteRules = [
@@ -1332,8 +1357,8 @@ app.addEventListener("click", (event) => {
       return;
     }
     const step = control.dataset.action === "lightbox-next" ? 1 : -1;
-    if (event.detail === 0) moveLightbox(step);
-    else scheduleLightboxPage(step);
+    clearPendingLightboxClick();
+    moveLightbox(step);
     return;
   }
   const actions = {
@@ -1355,7 +1380,7 @@ app.addEventListener("click", (event) => {
 
 app.addEventListener("dblclick", (event) => {
   const lightbox = event.target.closest(".lightbox");
-  if (!lightbox || lightbox.hidden || event.target.closest(".lightbox-close")) return;
+  if (!lightbox || lightbox.hidden || event.target.closest(".lightbox-close, .lightbox-arrow")) return;
   if (window.matchMedia("(pointer: coarse)").matches) return;
   const stage = lightbox.querySelector(".lightbox-stage");
   if (!stage) return;
@@ -1404,7 +1429,7 @@ app.addEventListener("wheel", (event) => {
 
 app.addEventListener("pointerdown", (event) => {
   const lightbox = event.target.closest(".lightbox");
-  if (!lightbox || lightbox.hidden || event.target.closest(".lightbox-close")) return;
+  if (!lightbox || lightbox.hidden || event.target.closest(".lightbox-close, .lightbox-arrow")) return;
   if (event.pointerType === "mouse" && event.button !== 0) return;
   if (lightboxScale > 1) event.preventDefault();
   lightboxPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -1585,6 +1610,7 @@ brand.addEventListener("click", () => {
 
 window.addEventListener("hashchange", render);
 window.addEventListener("resize", () => {
+  syncBrandLineMetrics();
   syncHomePagingCues();
   alignProjectBackLink();
 });
@@ -1637,13 +1663,13 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-57"),
-  fetch("assets/portfolio-preferences.json?v=20260807-57"),
-  fetch("assets/about-gallery.json?v=20260807-57"),
-  fetch("assets/project-essays.json?v=20260807-57"),
-  fetch("assets/project-equipment.json?v=20260807-57"),
-  fetch("assets/project-hq.json?v=20260807-57"),
-  fetch("assets/project-cover-images.json?v=20260807-57"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-62"),
+  fetch("assets/portfolio-preferences.json?v=20260807-62"),
+  fetch("assets/about-gallery.json?v=20260807-62"),
+  fetch("assets/project-essays.json?v=20260807-62"),
+  fetch("assets/project-equipment.json?v=20260807-62"),
+  fetch("assets/project-hq.json?v=20260807-62"),
+  fetch("assets/project-cover-images.json?v=20260807-62"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse, hqResponse, coversResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
