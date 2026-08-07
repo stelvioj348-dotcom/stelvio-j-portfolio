@@ -743,9 +743,15 @@ body.lightbox-open { overflow: hidden !important; }
   cursor: pointer;
 }
 
-.viewer-arrow--previous { left: 0; text-align: left; cursor: w-resize; }
+.viewer-arrow--previous {
+  left: 0;
+  padding-left: var(--gutter);
+  text-align: left;
+  cursor: w-resize;
+}
 .viewer-arrow--next {
   right: calc(100% / 3.8);
+  padding-right: var(--gutter);
   text-align: right;
   cursor: e-resize;
 }
