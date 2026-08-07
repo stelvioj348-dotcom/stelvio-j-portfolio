@@ -140,27 +140,34 @@ button { padding: 0; border: 0; background: transparent; }
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.route-content-clone {
+.route-page-clone {
   position: fixed;
   z-index: 45;
+  inset: 0;
+  display: grid;
+  grid-template-rows: var(--header-height) minmax(0, 1fr);
   overflow: hidden;
   background: var(--paper);
   opacity: 1;
   pointer-events: none;
-  transition: opacity 620ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 500ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.route-content-clone.is-leaving { opacity: 0; }
+.route-page-clone .route-app-clone { height: calc(100svh - var(--header-height)); }
+.route-page-clone .brand-line,
+.route-page-clone .back-link-bg,
+.route-page-clone .back-link-label { opacity: 0 !important; }
+.route-page-clone.is-leaving { opacity: 0; }
 
-#app.route-content-entering {
+body.manual-route-transition > .site-header,
+body.manual-route-transition > #app {
   opacity: 0;
-  transition: opacity 680ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 500ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-#app.route-content-entering.is-visible { opacity: 1; }
-
-body.route-page-fading .site-header {
-  animation: route-header-fade 980ms cubic-bezier(0.16, 1, 0.3, 1) both;
+body.manual-route-transition.route-page-visible > .site-header,
+body.manual-route-transition.route-page-visible > #app {
+  opacity: 1;
 }
 
 .blue-route-morph {
@@ -180,7 +187,7 @@ body.route-page-fading .site-header {
 .blue-route-morph--line {
   transform: scaleX(var(--route-line-start-scale, 0.1));
   transform-origin: left center;
-  transition: transform 440ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .blue-route-morph--line.is-extending { transform: scaleX(1); }
@@ -188,62 +195,87 @@ body.route-page-fading .site-header {
 .blue-route-morph--line.is-exiting {
   transform: scaleX(0);
   transform-origin: right center;
+  transition: transform 280ms cubic-bezier(0.7, 0, 0.84, 0);
+}
+
+.blue-route-project-pill {
+  transform: translate3d(0, 0, 0) scaleY(1);
+  transform-origin: right center;
+  transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.blue-route-project-pill span,
+.blue-route-arrival span {
+  position: relative;
+  z-index: 1;
+  transition: opacity 180ms ease;
+}
+
+.blue-route-project-pill.is-unfusing {
+  transform: translate3d(0, 0, 0) scaleY(var(--route-line-scale-y));
+}
+
+.blue-route-project-pill.is-unfusing span { opacity: 0; }
+
+.blue-route-project-pill.is-returning-right {
+  transform: translate3d(var(--route-to-edge-x), 0, 0) scaleY(var(--route-line-scale-y));
   transition: transform 360ms cubic-bezier(0.7, 0, 0.84, 0);
-}
-
-.blue-route-morph--pill {
-  padding: 0 10px;
-  transform: translate3d(0, 0, 0);
-  transition: transform 520ms cubic-bezier(0.7, 0, 0.84, 0);
-}
-
-.blue-route-morph--pill.is-leaving {
-  transform: translate3d(var(--route-exit-x), 0, 0);
 }
 
 .blue-route-arrival {
   position: fixed;
   z-index: 300;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
   background: #00aeef;
-  opacity: 0;
+  color: var(--ink);
+  white-space: nowrap;
   pointer-events: none;
-  transform: translate3d(150px, 82px, 0) scaleX(0.72);
-  transform-origin: left center;
-  transition: transform 500ms cubic-bezier(0.16, 1, 0.3, 1), opacity 260ms ease;
-  will-change: transform, opacity;
-}
-
-.blue-route-arrival.is-arriving {
-  opacity: 1;
-  transform: translate3d(0, 0, 0) scaleX(1);
-}
-
-.blue-route-arrival.is-fusing {
-  opacity: 0;
-  transform: translate3d(-4px, 0, 0) scaleX(0);
-  transition: transform 300ms cubic-bezier(0.7, 0, 0.84, 0), opacity 220ms ease;
-}
-
-body.manual-route-transition .brand-line:not(.route-target-reveal),
-body.manual-route-transition .back-link-bg:not(.route-target-reveal) { opacity: 0 !important; }
-
-.route-target-reveal {
-  opacity: 1 !important;
-  transform: scaleX(0);
+  transform: translate3d(var(--route-arrival-x), 46px, 0) scaleY(var(--route-line-scale-y));
   transform-origin: right center;
-  transition: transform 540ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
 }
 
-.route-target-reveal.is-entering { transform: scaleX(1); }
+.blue-route-arrival span { opacity: 0; }
 
-@keyframes route-header-fade {
-  0% { opacity: 1; }
-  42% { opacity: 0; }
-  100% { opacity: 1; }
+.blue-route-arrival.is-arriving {
+  transform: translate3d(0, 0, 0) scaleY(var(--route-line-scale-y));
 }
+
+.blue-route-arrival.is-fusing {
+  transform: translate3d(0, 0, 0) scaleY(1);
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.blue-route-arrival.is-fusing span { opacity: 1; }
+
+.blue-route-return-line {
+  position: fixed;
+  z-index: 300;
+  display: block;
+  border-radius: 999px;
+  background: #00aeef;
+  pointer-events: none;
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.blue-route-return-line.is-returning-in { transform: scaleX(1); }
+
+.blue-route-return-line.is-returning-home {
+  transform: scaleX(var(--route-line-end-scale));
+  transform-origin: left center;
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.manual-route-transition .brand-line,
+body.manual-route-transition .back-link-bg,
+body.manual-route-transition .back-link-label { opacity: 0 !important; }
 
 .site-header {
   position: relative;

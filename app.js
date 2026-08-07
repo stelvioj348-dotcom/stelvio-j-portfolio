@@ -117,17 +117,15 @@ function renderFluidCursor() {
 function prepareManualRouteTransition(source, targetSelector) {
   if (!source || manualRouteTransition) return;
   const sourceRect = source.getBoundingClientRect();
-  const appRect = app.getBoundingClientRect();
-  const frozen = app.cloneNode(true);
-  frozen.removeAttribute("id");
-  frozen.removeAttribute("tabindex");
-  frozen.classList.add("route-content-clone");
-  Object.assign(frozen.style, {
-    top: `${appRect.top}px`,
-    left: `${appRect.left}px`,
-    width: `${appRect.width}px`,
-    height: `${appRect.height}px`,
-  });
+  const frozen = document.createElement("div");
+  frozen.className = "route-page-clone";
+  const frozenHeader = document.querySelector(".site-header").cloneNode(true);
+  const frozenApp = app.cloneNode(true);
+  frozenHeader.removeAttribute("id");
+  frozenApp.removeAttribute("id");
+  frozenApp.removeAttribute("tabindex");
+  frozenApp.classList.add("route-app-clone");
+  frozen.append(frozenHeader, frozenApp);
 
   const morph = document.createElement("span");
   morph.className = "blue-route-morph";
@@ -139,18 +137,19 @@ function prepareManualRouteTransition(source, targetSelector) {
       left: `${sourceRect.left}px`,
       width: `${lineWidth}px`,
       height: `${sourceRect.height}px`,
-      "--route-line-start-scale": String(sourceRect.width / lineWidth),
     });
+    morph.style.setProperty("--route-line-start-scale", String(sourceRect.width / lineWidth));
   } else {
-    morph.classList.add("blue-route-morph--pill");
-    morph.textContent = "← Projects";
+    morph.classList.add("blue-route-project-pill");
+    morph.innerHTML = "<span>← Projects</span>";
     Object.assign(morph.style, {
       top: `${sourceRect.top}px`,
       left: `${sourceRect.left}px`,
       width: `${sourceRect.width}px`,
       height: `${sourceRect.height}px`,
-      "--route-exit-x": `${window.innerWidth - sourceRect.left + sourceRect.width + 40}px`,
     });
+    morph.style.setProperty("--route-to-edge-x", `${window.innerWidth - sourceRect.left + sourceRect.width + 24}px`);
+    morph.style.setProperty("--route-line-scale-y", String(2 / Math.max(2, sourceRect.height)));
   }
   document.body.append(frozen, morph);
   document.body.classList.add("manual-route-transition");
@@ -171,51 +170,63 @@ function playManualRouteTransition() {
     return;
   }
 
-  target.classList.add("route-target-reveal");
-  app.classList.add("route-content-entering");
-  document.body.classList.add("route-page-fading");
-
   let arrival = null;
+  let returnLine = null;
   if (active.targetSelector === "projects") {
     const targetRect = target.getBoundingClientRect();
     arrival = document.createElement("span");
     arrival.className = "blue-route-arrival";
+    arrival.innerHTML = "<span>← Projects</span>";
     Object.assign(arrival.style, {
-      top: `${targetRect.top + targetRect.height / 2 - 1}px`,
-      left: `${targetRect.right}px`,
-      width: `${Math.max(72, Math.min(110, targetRect.width))}px`,
-      height: "2px",
+      top: `${targetRect.top}px`,
+      left: `${targetRect.left}px`,
+      width: `${targetRect.width}px`,
+      height: `${targetRect.height}px`,
     });
+    arrival.style.setProperty("--route-arrival-x", `${window.innerWidth - targetRect.left + targetRect.width + 20}px`);
+    arrival.style.setProperty("--route-line-scale-y", String(2 / Math.max(2, targetRect.height)));
     document.body.append(arrival);
+  } else {
+    const targetRect = target.getBoundingClientRect();
+    const lineWidth = Math.max(targetRect.width, window.innerWidth - targetRect.left + 2);
+    returnLine = document.createElement("span");
+    returnLine.className = "blue-route-return-line";
+    Object.assign(returnLine.style, {
+      top: `${targetRect.top}px`,
+      left: `${targetRect.left}px`,
+      width: `${lineWidth}px`,
+      height: `${targetRect.height}px`,
+    });
+    returnLine.style.setProperty("--route-line-end-scale", String(targetRect.width / lineWidth));
+    document.body.append(returnLine);
   }
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    app.classList.add("is-visible");
+    window.setTimeout(() => {
+      active.frozen.classList.add("is-leaving");
+      document.body.classList.add("route-page-visible");
+    }, 260);
+
     if (active.targetSelector === "projects") {
       active.morph.classList.add("is-extending");
-      window.setTimeout(() => active.frozen.classList.add("is-leaving"), 260);
-      window.setTimeout(() => active.morph.classList.add("is-exiting"), 440);
-      window.setTimeout(() => arrival?.classList.add("is-arriving"), 760);
-      window.setTimeout(() => {
-        arrival?.classList.add("is-fusing");
-        target.classList.add("is-entering");
-      }, 1240);
+      window.setTimeout(() => active.morph.classList.add("is-exiting"), 280);
+      window.setTimeout(() => arrival?.classList.add("is-arriving"), 620);
+      window.setTimeout(() => arrival?.classList.add("is-fusing"), 1020);
     } else {
-      active.morph.classList.add("is-leaving");
-      window.setTimeout(() => active.frozen.classList.add("is-leaving"), 180);
-      window.setTimeout(() => target.classList.add("is-entering"), 520);
+      active.morph.classList.add("is-unfusing");
+      window.setTimeout(() => active.morph.classList.add("is-returning-right"), 240);
+      window.setTimeout(() => returnLine?.classList.add("is-returning-in"), 620);
+      window.setTimeout(() => returnLine?.classList.add("is-returning-home"), 940);
     }
 
-    const duration = active.targetSelector === "projects" ? 1820 : 1100;
     window.setTimeout(() => {
       active.frozen.remove();
       active.morph.remove();
       arrival?.remove();
-      target.classList.remove("route-target-reveal", "is-entering");
-      app.classList.remove("route-content-entering", "is-visible");
+      returnLine?.remove();
       if (manualRouteTransition === active) manualRouteTransition = null;
-      document.body.classList.remove("manual-route-transition", "project-home-return", "route-page-fading");
-    }, duration);
+      document.body.classList.remove("manual-route-transition", "project-home-return", "route-page-visible");
+    }, 1400);
   }));
 }
 
@@ -1938,13 +1949,13 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-71"),
-  fetch("assets/portfolio-preferences.json?v=20260807-71"),
-  fetch("assets/about-gallery.json?v=20260807-71"),
-  fetch("assets/project-essays.json?v=20260807-71"),
-  fetch("assets/project-equipment.json?v=20260807-71"),
-  fetch("assets/project-hq.json?v=20260807-71"),
-  fetch("assets/project-cover-images.json?v=20260807-71"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-72"),
+  fetch("assets/portfolio-preferences.json?v=20260807-72"),
+  fetch("assets/about-gallery.json?v=20260807-72"),
+  fetch("assets/project-essays.json?v=20260807-72"),
+  fetch("assets/project-equipment.json?v=20260807-72"),
+  fetch("assets/project-hq.json?v=20260807-72"),
+  fetch("assets/project-cover-images.json?v=20260807-72"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse, hqResponse, coversResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
