@@ -221,6 +221,7 @@ function syncFullscreenControls() {
 }
 
 async function toggleFullscreen() {
+  if (window.matchMedia("(max-width: 720px)").matches) return;
   try {
     if (isFullscreen()) await document.exitFullscreen();
     else await document.documentElement.requestFullscreen();
@@ -1183,11 +1184,11 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-31"),
-  fetch("assets/portfolio-preferences.json?v=20260807-31"),
-  fetch("assets/about-gallery.json?v=20260807-31"),
-  fetch("assets/project-essays.json?v=20260807-31"),
-  fetch("assets/project-equipment.json?v=20260807-31"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-32"),
+  fetch("assets/portfolio-preferences.json?v=20260807-32"),
+  fetch("assets/about-gallery.json?v=20260807-32"),
+  fetch("assets/project-essays.json?v=20260807-32"),
+  fetch("assets/project-equipment.json?v=20260807-32"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);

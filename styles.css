@@ -404,6 +404,18 @@ html:fullscreen .lightbox-shell {
   padding-bottom: clamp(76px, 12dvh, 136px);
 }
 
+@media (min-width: 721px) {
+  html:fullscreen .viewer-caption {
+    justify-content: center;
+    padding-top: clamp(88px, 14dvh, 156px);
+    padding-bottom: clamp(88px, 14dvh, 156px);
+  }
+
+  html:fullscreen .viewer-caption-footer {
+    margin-top: 28px;
+  }
+}
+
 body[data-view="archive"] .site-header,
 body[data-view="about"] .site-header,
 body[data-view="contact"] .site-header {
@@ -904,6 +916,8 @@ body.lightbox-open { overflow: hidden !important; }
 
   .identity-nav,
   .city-nav { transform: none; }
+
+  .fullscreen-toggle { display: none !important; }
 
   .viewer-stage {
     display: grid;
