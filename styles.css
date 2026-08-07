@@ -692,7 +692,7 @@ body[data-view="contact"] #app {
   place-self: center;
   width: clamp(132px, 14vw, 220px);
   margin: 0;
-  transform: translateX(-8%);
+  transform: translateX(-15%);
 }
 
 .contact-portrait img {

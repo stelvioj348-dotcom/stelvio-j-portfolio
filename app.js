@@ -554,7 +554,7 @@ function renderContact() {
         </div>
       </header>
       <figure class="contact-portrait">
-        <img src="assets/contact-portrait.webp?v=20260807-40" alt="Illustrated portrait of Jiang Ruiqi" width="720" height="720" decoding="async" />
+        <img src="assets/contact-portrait.webp?v=20260807-41" alt="Illustrated portrait of Jiang Ruiqi" width="720" height="720" decoding="async" />
       </figure>
       <dl class="contact-list">
         <div>
@@ -1325,11 +1325,11 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-40"),
-  fetch("assets/portfolio-preferences.json?v=20260807-40"),
-  fetch("assets/about-gallery.json?v=20260807-40"),
-  fetch("assets/project-essays.json?v=20260807-40"),
-  fetch("assets/project-equipment.json?v=20260807-40"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-41"),
+  fetch("assets/portfolio-preferences.json?v=20260807-41"),
+  fetch("assets/about-gallery.json?v=20260807-41"),
+  fetch("assets/project-essays.json?v=20260807-41"),
+  fetch("assets/project-equipment.json?v=20260807-41"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
