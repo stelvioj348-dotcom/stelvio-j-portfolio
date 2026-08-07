@@ -161,6 +161,11 @@ button { padding: 0; border: 0; background: transparent; }
   cursor: default;
 }
 
+.viewer--project .viewer-media {
+  --media-pad-right: clamp(48px, 4.2vw, 72px);
+  padding-right: var(--media-pad-right);
+}
+
 .viewer-image-frame {
   display: flex;
   align-items: center;
@@ -542,6 +547,11 @@ body[data-view="archive"] #app {
     --media-pad-bottom: 10px;
     --media-pad-left: var(--gutter);
     padding: 14px var(--gutter) 10px;
+  }
+
+  .viewer--project .viewer-media {
+    --media-pad-right: var(--gutter);
+    padding-right: var(--media-pad-right);
   }
 
   html:fullscreen .viewer-media {
