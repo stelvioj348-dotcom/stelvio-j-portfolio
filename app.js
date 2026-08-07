@@ -44,6 +44,7 @@ let lightboxMultiTouchGesture = false;
 let lightboxDismissStart = null;
 let lightboxDismissTimer = null;
 let lightboxLastTap = null;
+let lightboxCloseTimer = null;
 const imageDecodeCache = new Map();
 let wheelAccumulator = 0;
 let wheelDirection = 0;
@@ -205,10 +206,8 @@ function playManualRouteTransition() {
   }
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    window.setTimeout(() => {
-      active.frozen.classList.add("is-leaving");
-      document.body.classList.add("route-page-visible");
-    }, 260);
+    window.setTimeout(() => active.frozen.classList.add("is-leaving"), 180);
+    window.setTimeout(() => document.body.classList.add("route-page-visible"), 520);
 
     if (active.targetSelector === "projects") {
       active.morph.classList.add("is-extending");
@@ -220,6 +219,10 @@ function playManualRouteTransition() {
       window.setTimeout(() => active.morph.classList.add("is-returning-right"), 240);
       window.setTimeout(() => returnLine?.classList.add("is-returning-in"), 620);
       window.setTimeout(() => returnLine?.classList.add("is-returning-home"), 940);
+      window.setTimeout(() => {
+        document.body.classList.add("route-line-handoff");
+        returnLine?.classList.add("is-handing-off");
+      }, 1210);
     }
 
     window.setTimeout(() => {
@@ -228,7 +231,7 @@ function playManualRouteTransition() {
       arrival?.remove();
       returnLine?.remove();
       if (manualRouteTransition === active) manualRouteTransition = null;
-      document.body.classList.remove("manual-route-transition", "project-home-return", "route-page-visible");
+      document.body.classList.remove("manual-route-transition", "project-home-return", "route-page-visible", "route-line-handoff");
     }, 1400);
   }));
 }
@@ -398,7 +401,19 @@ function scheduleLightboxPage(step) {
   }, lightboxClickDelay);
 }
 
-function registerLightboxMouseDown(event) {
+function registerLightboxPrimaryDown(event) {
+  if (event.pointerType === "touch") {
+    const now = performance.now();
+    if (
+      lightboxLastTap
+      && now - lightboxLastTap.time < 360
+      && Math.hypot(event.clientX - lightboxLastTap.x, event.clientY - lightboxLastTap.y) < 42
+    ) {
+      clearPendingLightboxClick();
+      lightboxSuppressPagingUntil = now + 560;
+    }
+    return;
+  }
   if (event.pointerType !== "mouse" || event.button !== 0) return;
   const now = performance.now();
   const isSecondPress = Boolean(
@@ -1207,6 +1222,9 @@ function openLightbox(index, mode = "about") {
   const photos = lightboxPhotos();
   const lightbox = app.querySelector(".lightbox");
   if (!lightbox || !photos.length) return;
+  if (lightboxCloseTimer !== null) window.clearTimeout(lightboxCloseTimer);
+  lightboxCloseTimer = null;
+  lightbox.classList.remove("is-closing");
   lightboxIndex = ((Number(index) % photos.length) + photos.length) % photos.length;
   resetLightboxTransform();
   lightboxReturnFocus = document.activeElement;
@@ -1227,22 +1245,29 @@ function openLightbox(index, mode = "about") {
 
 function closeLightbox() {
   const lightbox = app.querySelector(".lightbox");
-  if (!lightbox || lightbox.hidden) return;
+  if (!lightbox || lightbox.hidden || lightbox.classList.contains("is-closing")) return;
+  if (lightboxCloseTimer !== null) window.clearTimeout(lightboxCloseTimer);
   lightbox.classList.remove("is-open");
-  lightboxRequestToken += 1;
-  lightboxTransitionToken += 1;
-  lightboxTargetIndex = null;
-  resetLightboxTransform();
-  lightboxGestureMoved = false;
-  lightbox.hidden = true;
-  lightboxLocked = false;
-  resetWheelNavigation();
-  document.body.classList.remove("lightbox-open");
-  lightboxReturnFocus?.focus?.({ preventScroll: true });
-  lightboxReturnFocus = null;
+  lightbox.classList.add("is-closing");
+  lightboxCloseTimer = window.setTimeout(() => {
+    lightboxCloseTimer = null;
+    lightboxRequestToken += 1;
+    lightboxTransitionToken += 1;
+    lightboxTargetIndex = null;
+    resetLightboxTransform();
+    lightboxGestureMoved = false;
+    lightbox.classList.remove("is-closing");
+    lightbox.hidden = true;
+    lightboxLocked = false;
+    resetWheelNavigation();
+    document.body.classList.remove("lightbox-open");
+    lightboxReturnFocus?.focus?.({ preventScroll: true });
+    lightboxReturnFocus = null;
+  }, 190);
 }
 
 function moveLightbox(step) {
+  if (performance.now() < lightboxSuppressPagingUntil) return;
   const photos = lightboxPhotos();
   const lightbox = app.querySelector(".lightbox");
   if (!lightbox || lightbox.hidden || !photos.length) return;
@@ -1623,6 +1648,20 @@ app.addEventListener("click", (event) => {
 
 app.addEventListener("click", (event) => {
   const control = event.target.closest("[data-action]");
+  const openLightboxElement = event.target.closest(".lightbox:not([hidden])");
+  if (
+    openLightboxElement
+    && window.matchMedia("(max-width: 720px)").matches
+    && lightboxScale === 1
+    && !lightboxGestureMoved
+    && !control
+    && !event.target.closest(".lightbox-meta")
+    && !lightboxPointIsInsideImage(event.clientX, event.clientY)
+  ) {
+    event.preventDefault();
+    closeLightbox();
+    return;
+  }
   if (!control) {
     if (
       route().view === "project"
@@ -1713,7 +1752,7 @@ app.addEventListener("wheel", (event) => {
 app.addEventListener("pointerdown", (event) => {
   const lightbox = event.target.closest(".lightbox");
   if (!lightbox || lightbox.hidden) return;
-  registerLightboxMouseDown(event);
+  registerLightboxPrimaryDown(event);
   if (event.target.closest(".lightbox-close, .lightbox-arrow")) return;
   if (event.pointerType === "mouse" && event.button !== 0) return;
   if (lightboxScale > 1) event.preventDefault();
@@ -1723,15 +1762,7 @@ app.addEventListener("pointerdown", (event) => {
   lightboxSwipeTriggered = false;
 
   if (lightboxPointers.size === 1) {
-    lightboxDismissStart = (
-      event.pointerType === "touch"
-      && window.matchMedia("(max-width: 720px)").matches
-      && lightboxScale === 1
-    ) ? {
-      pointerId: event.pointerId,
-      x: event.clientX,
-      y: event.clientY,
-    } : null;
+    lightboxDismissStart = null;
     lightboxDragStart = {
       pointerId: event.pointerId,
       x: event.clientX,
@@ -1908,6 +1939,7 @@ function finishLightboxPointer(event, allowSwipe) {
     if (isDoubleTap) {
       lightboxLastTap = null;
       lightboxGestureMoved = true;
+      lightboxSuppressPagingUntil = now + 560;
       toggleLightboxZoomAt(point.x, point.y);
     } else {
       lightboxLastTap = { time: now, x: point.x, y: point.y };
@@ -2054,13 +2086,13 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-73"),
-  fetch("assets/portfolio-preferences.json?v=20260807-73"),
-  fetch("assets/about-gallery.json?v=20260807-73"),
-  fetch("assets/project-essays.json?v=20260807-73"),
-  fetch("assets/project-equipment.json?v=20260807-73"),
-  fetch("assets/project-hq.json?v=20260807-73"),
-  fetch("assets/project-cover-images.json?v=20260807-73"),
+  fetch("assets/portfolio-data-v2.json?v=20260808-74"),
+  fetch("assets/portfolio-preferences.json?v=20260808-74"),
+  fetch("assets/about-gallery.json?v=20260808-74"),
+  fetch("assets/project-essays.json?v=20260808-74"),
+  fetch("assets/project-equipment.json?v=20260808-74"),
+  fetch("assets/project-hq.json?v=20260808-74"),
+  fetch("assets/project-cover-images.json?v=20260808-74"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse, hqResponse, coversResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
