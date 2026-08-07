@@ -236,6 +236,10 @@ function renderLanding() {
             <dd>${escapeHtml(project.city)}</dd>
             <dt>Photographed</dt>
             <dd>${escapeHtml(project.shootingDate)}</dd>
+            <dt>Camera</dt>
+            <dd>${escapeHtml(project.camera)}</dd>
+            <dt>Focal Length</dt>
+            <dd>${escapeHtml(project.focalLength)}</dd>
           </dl>
           <p class="project-description">${escapeHtml(project.description)}</p>
           <div class="viewer-caption-footer">
@@ -533,6 +537,10 @@ function renderProject(slug) {
             <dd>${escapeHtml(project.city)}</dd>
             <dt>Photographed</dt>
             <dd>${escapeHtml(project.shootingDate)}</dd>
+            <dt>Camera</dt>
+            <dd>${escapeHtml(project.camera)}</dd>
+            <dt>Focal Length</dt>
+            <dd>${escapeHtml(project.focalLength)}</dd>
           </dl>
           <p class="project-description">${escapeHtml(project.description)}</p>
           <div class="viewer-caption-footer">
@@ -777,27 +785,32 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-16"),
-  fetch("assets/portfolio-preferences.json?v=20260807-16"),
-  fetch("assets/about-gallery.json?v=20260807-16"),
-  fetch("assets/project-essays.json?v=20260807-16"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-17"),
+  fetch("assets/portfolio-preferences.json?v=20260807-17"),
+  fetch("assets/about-gallery.json?v=20260807-17"),
+  fetch("assets/project-essays.json?v=20260807-17"),
+  fetch("assets/project-equipment.json?v=20260807-17"),
 ])
-  .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse]) => {
+  .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
     if (!preferencesResponse.ok) throw new Error(`Portfolio preferences returned ${preferencesResponse.status}`);
     if (!aboutResponse.ok) throw new Error(`About gallery returned ${aboutResponse.status}`);
     if (!essaysResponse.ok) throw new Error(`Project essays returned ${essaysResponse.status}`);
+    if (!equipmentResponse.ok) throw new Error(`Project equipment returned ${equipmentResponse.status}`);
     return [
       await dataResponse.json(),
       await preferencesResponse.json(),
       await aboutResponse.json(),
       await essaysResponse.json(),
+      await equipmentResponse.json(),
     ];
   })
-  .then(([data, preferences, photography, essays]) => {
+  .then(([data, preferences, photography, essays, equipment]) => {
     const enrichedData = data.map((project) => ({
       ...project,
       description: essays[project.slug] || project.description,
+      camera: equipment[project.slug]?.camera || "Not specified",
+      focalLength: equipment[project.slug]?.focalLength || "Not specified",
     }));
     publishedPreferences = preferences;
     sourceProjects = enrichedData;
