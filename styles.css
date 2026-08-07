@@ -64,9 +64,9 @@ button { padding: 0; border: 0; background: transparent; }
 .brand {
   position: relative;
   color: var(--ink);
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 400;
-  line-height: 24px;
+  line-height: 26px;
   white-space: nowrap;
 }
 
@@ -106,6 +106,8 @@ button { padding: 0; border: 0; background: transparent; }
   display: inline-block;
   padding: 4px 0;
   color: var(--ink);
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .city-nav a::after,
@@ -277,7 +279,12 @@ button { padding: 0; border: 0; background: transparent; }
 .project-meta,
 .back-link { max-width: 34ch; }
 
-.project-description { max-width: 56ch; }
+.project-description {
+  max-width: 56ch;
+  color: #6b6b67;
+  font-size: 13px;
+  line-height: 20px;
+}
 
 .viewer-kicker { margin: 0 0 12px; color: #8a8a86; }
 
@@ -731,7 +738,7 @@ body.lightbox-open { overflow: hidden !important; }
   top: 0;
   bottom: 0;
   z-index: 10;
-  width: 48px;
+  width: clamp(80px, 12vw, 176px);
   color: var(--ink);
   cursor: pointer;
 }
@@ -827,7 +834,7 @@ body.lightbox-open { overflow: hidden !important; }
   .city-nav {
     justify-content: flex-start;
     gap: 17px;
-    margin: 13px 0 0;
+    margin: 12px 0 0;
     padding-bottom: 5px;
   }
 
@@ -838,6 +845,10 @@ body.lightbox-open { overflow: hidden !important; }
     display: grid;
     grid-template-rows: minmax(0, 62fr) minmax(205px, 38fr);
     grid-template-columns: 1fr;
+  }
+
+  .viewer--project .viewer-stage {
+    grid-template-rows: minmax(0, 56fr) minmax(240px, 44fr);
   }
 
   .viewer-media {
@@ -867,7 +878,7 @@ body.lightbox-open { overflow: hidden !important; }
 
   .viewer-caption {
     padding: 8px var(--gutter) 15px;
-    overflow-y: auto;
+    overflow: hidden;
     border-top: 1px solid var(--line);
   }
 
@@ -878,14 +889,33 @@ body.lightbox-open { overflow: hidden !important; }
   .project-description { margin-top: 15px; -webkit-line-clamp: 4; }
   .viewer-caption-footer { padding-top: 16px; }
 
+  .project-description {
+    display: block;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-right: 6px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    -webkit-line-clamp: unset;
+  }
+
+  .viewer-caption-footer {
+    flex: 0 0 auto;
+    margin-top: 0;
+    padding-top: 10px;
+  }
+
   .viewer-arrow {
     top: 0;
     bottom: auto;
-    width: 44px;
+    width: min(28vw, 112px);
     height: 62%;
   }
 
   .viewer-arrow--next { right: 0; }
+
+  .viewer--project .viewer-arrow { height: 56%; }
 
   .viewer-arrow span { width: 30px; opacity: 0.72; }
 
