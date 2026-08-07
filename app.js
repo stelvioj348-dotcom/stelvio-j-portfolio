@@ -269,8 +269,10 @@ window.addEventListener("pointermove", (event) => {
     const isProjectTitle = Boolean(magnet.closest(".viewer-caption h1"));
     cursorTargetX = rect.left + rect.width / 2;
     cursorTargetY = rect.top + rect.height / 2;
-    fluidCursor.style.setProperty("--cursor-magnet-width", `${Math.max(24, rect.width + (isProjectTitle ? 28 : 18))}px`);
-    fluidCursor.style.setProperty("--cursor-magnet-height", `${Math.max(24, rect.height + (isProjectTitle ? 10 : 0))}px`);
+    const magnetWidth = isProjectTitle ? Math.max(28, rect.width + 28) : Math.max(22, Math.min(rect.width + 4, 52));
+    const magnetHeight = isProjectTitle ? Math.max(24, rect.height + 10) : Math.max(16, Math.min(rect.height + 2, 26));
+    fluidCursor.style.setProperty("--cursor-magnet-width", `${magnetWidth}px`);
+    fluidCursor.style.setProperty("--cursor-magnet-height", `${magnetHeight}px`);
   } else if (isNearProjects && nearby) {
     const centerX = nearby.rect.left + nearby.rect.width / 2;
     const centerY = nearby.rect.top + nearby.rect.height / 2;
@@ -312,6 +314,17 @@ window.addEventListener("pointermove", (event) => {
 
 window.addEventListener("pointerdown", (event) => {
   if (finePointerQuery.matches && event.pointerType !== "touch") fluidCursor.classList.add("is-pressed");
+  if (
+    cursorMagnetControl
+    && finePointerQuery.matches
+    && event.pointerType !== "touch"
+    && !cursorMagnetControl.contains(event.target)
+  ) {
+    event.preventDefault();
+    event.stopPropagation();
+    cursorMagnetControl.click();
+    cursorMagnetControl.focus?.();
+  }
 });
 window.addEventListener("pointerup", () => fluidCursor.classList.remove("is-pressed"));
 document.documentElement.addEventListener("mouseleave", () => {
@@ -480,7 +493,6 @@ const architectWebsiteRules = [
   ["Atelier Deshaus", "https://www.deshaus.com/"],
   ["Atelier FCJZ", "https://www.fcjz.com/"],
   ["Ateliers Jean Nouvel", "https://www.jeannouvel.com/"],
-  ["Jean Nouvel", "https://www.jeannouvel.com/"],
   ["azLa", "https://www.azlarchitects.com/"],
   ["BIG", "https://big.dk/"],
   ["Delugan Meissl", "https://www.dmaa.at/"],

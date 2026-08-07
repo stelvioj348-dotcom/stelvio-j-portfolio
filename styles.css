@@ -232,18 +232,16 @@ body.manual-route-transition.route-page-visible > #app {
 
 .blue-route-project-pill.is-unfusing {
   background-color: transparent;
+  transform: translate3d(0, 0, 0) scaleY(var(--route-line-scale-y, 1));
 }
 
 .blue-route-project-pill.is-unfusing span { opacity: 0; }
 
-.blue-route-project-pill.is-unfusing::after {
-  opacity: 1;
-  transform: translateY(-50%) scaleX(1);
-}
+.blue-route-project-pill.is-unfusing::after { opacity: 0; }
 
 .blue-route-project-pill.is-returning-right {
   background-color: transparent;
-  transform: translate3d(var(--route-to-edge-x), 0, 0);
+  transform: translate3d(var(--route-to-edge-x), 0, 0) scaleY(var(--route-line-scale-y, 1));
   transition: transform 360ms cubic-bezier(0.7, 0, 0.84, 0);
 }
 
