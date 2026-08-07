@@ -919,6 +919,9 @@ body.lightbox-open { overflow: hidden !important; }
 
   .fullscreen-toggle { display: none !important; }
 
+  .viewer--home::before { left: 3px; }
+  .viewer--home::after { right: 3px; }
+
   .viewer-stage {
     display: grid;
     grid-template-rows: minmax(0, 62fr) minmax(205px, 38fr);
