@@ -138,5 +138,9 @@
   "h-plus-art-museum": {
     "camera": "Ricoh GR III HDF",
     "focalLength": "28mm"
+  },
+  "modum-atelier-nanjing-office": {
+    "camera": "iPhone Air",
+    "focalLength": "26mm"
   }
 }

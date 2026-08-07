@@ -2399,5 +2399,76 @@
         "sourceFile": "efc8498761ddd14513427bb799037888.jpg"
       }
     ]
+  },
+  {
+    "slug": "modum-atelier-nanjing-office",
+    "title": "Modum Atelier Nanjing Office",
+    "city": "Nanjing",
+    "shootingDate": "2026",
+    "architect": "Modum Atelier",
+    "span": 3,
+    "description": "Modum Atelier's Nanjing office adapts a row-house unit in National Leading Talents Pioneer Park, formerly part of the late-Qing Jiangnan minting bureau. The renovation balances old and new construction while softening the boundary between workplace, domestic life and the surrounding lane.",
+    "index": 36,
+    "coverSrc": "assets/covers/modum-atelier-nanjing-office.webp",
+    "coverWidth": 1200,
+    "coverHeight": 1600,
+    "images": [
+      {
+        "src": "assets/projects/modum-atelier-nanjing-office/01.webp",
+        "width": 1800,
+        "height": 2400,
+        "alt": "Modum Atelier Nanjing Office — photograph 1",
+        "sourceFile": "3da2a72592c5b6c7123eda47e0b86af9.jpg"
+      },
+      {
+        "src": "assets/projects/modum-atelier-nanjing-office/02.webp",
+        "width": 1800,
+        "height": 2400,
+        "alt": "Modum Atelier Nanjing Office — photograph 2",
+        "sourceFile": "8b3e2d6ddd10b888d2b53e9fa3e4af42.jpg"
+      },
+      {
+        "src": "assets/projects/modum-atelier-nanjing-office/03.webp",
+        "width": 1800,
+        "height": 2400,
+        "alt": "Modum Atelier Nanjing Office — photograph 3",
+        "sourceFile": "9c87618cb9a8c2e905b727d951553769.jpg"
+      },
+      {
+        "src": "assets/projects/modum-atelier-nanjing-office/04.webp",
+        "width": 1800,
+        "height": 2400,
+        "alt": "Modum Atelier Nanjing Office — photograph 4",
+        "sourceFile": "ac04c27ee67d0d4523302ee35126d82b.jpg"
+      },
+      {
+        "src": "assets/projects/modum-atelier-nanjing-office/05.webp",
+        "width": 1800,
+        "height": 2400,
+        "alt": "Modum Atelier Nanjing Office — photograph 5",
+        "sourceFile": "accddfe86267a1f9847f4cfbd4f99397.jpg"
+      },
+      {
+        "src": "assets/projects/modum-atelier-nanjing-office/06.webp",
+        "width": 1800,
+        "height": 2400,
+        "alt": "Modum Atelier Nanjing Office — photograph 6",
+        "sourceFile": "ed9c394c85bbe2ba780544c511e60e9c.jpg"
+      },
+      {
+        "src": "assets/projects/modum-atelier-nanjing-office/07.webp",
+        "width": 1800,
+        "height": 2400,
+        "alt": "Modum Atelier Nanjing Office — photograph 7",
+        "sourceFile": "f4acf79298b7c7c45ee8ed064e8885cb.jpg"
+      },
+      {
+        "src": "assets/projects/modum-atelier-nanjing-office/08.webp",
+        "width": 1800,
+        "height": 2400,
+        "alt": "Modum Atelier Nanjing Office — photograph 8",
+        "sourceFile": "f4cf370eaf21ef577f2e30a118de1bf7.jpg"
+      }
+    ]
   }
 ]

@@ -231,7 +231,7 @@ document.querySelector("#download-choices").addEventListener("click", () => {
 });
 
 document.querySelector("#reset-choices").addEventListener("click", () => {
-  if (!window.confirm("Reset every cover and the full 35-project order on this device?")) return;
+  if (!window.confirm("Reset every cover and the full project order on this device?")) return;
   localStorage.removeItem(preferenceKey);
   covers = {};
   order = projects.map((project) => project.slug);
@@ -240,8 +240,8 @@ document.querySelector("#reset-choices").addEventListener("click", () => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260806-5"),
-  fetch("assets/portfolio-preferences.json?v=20260806-5"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-36"),
+  fetch("assets/portfolio-preferences.json?v=20260807-36"),
 ])
   .then(async ([dataResponse, preferencesResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
