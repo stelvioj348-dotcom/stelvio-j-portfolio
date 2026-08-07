@@ -4,7 +4,7 @@
   --muted: #4c4c4c;
   --line: #d9d9d5;
   --gutter: 32px;
-  --header-height: 58px;
+  --header-height: 50px;
   font-family: sans-serif, -apple-system, BlinkMacSystemFont, "San Francisco", Roboto,
     "Segoe UI", "Helvetica Neue", sans-serif;
   color: var(--muted);
@@ -792,9 +792,9 @@ body.lightbox-open { overflow: hidden !important; }
 }
 
 @media (max-width: 720px) {
-  :root { --gutter: 15px; --header-height: 92px; }
+  :root { --gutter: 15px; --header-height: 80px; }
 
-  .site-header { display: block; padding-top: 14px; }
+  .site-header { display: block; padding-top: 9px; }
   .identity-nav { justify-content: space-between; gap: 18px; }
   .brand { display: inline-block; }
   .profile-nav { gap: 17px; }
@@ -802,8 +802,8 @@ body.lightbox-open { overflow: hidden !important; }
   .city-nav {
     justify-content: flex-start;
     gap: 17px;
-    margin: 13px 0 0;
-    padding-bottom: 5px;
+    margin: 8px 0 0;
+    padding-bottom: 3px;
   }
 
   .viewer-stage {
