@@ -496,7 +496,7 @@ async function moveLightbox(step) {
     lightboxLocked = false;
   };
   incoming.addEventListener("transitionend", finish, { once: true });
-  window.setTimeout(finish, 880);
+  window.setTimeout(finish, 1080);
 }
 
 function renderProject(slug) {
@@ -589,7 +589,7 @@ async function runCarouselTransition(step, update, incomingSrc) {
     transitionLocked = false;
   };
   incoming.addEventListener("transitionend", finish, { once: true });
-  window.setTimeout(finish, 880);
+  window.setTimeout(finish, 1080);
 }
 
 function moveHome(step) {
@@ -666,7 +666,7 @@ async function movePhoto(step) {
     finish();
   };
   incoming.addEventListener("transitionend", finishOnce, { once: true });
-  window.setTimeout(finishOnce, 880);
+  window.setTimeout(finishOnce, 1080);
 }
 
 function moveCurrent(step) {
@@ -774,9 +774,9 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-9"),
-  fetch("assets/portfolio-preferences.json?v=20260807-9"),
-  fetch("assets/about-gallery.json?v=20260807-9"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-10"),
+  fetch("assets/portfolio-preferences.json?v=20260807-10"),
+  fetch("assets/about-gallery.json?v=20260807-10"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
