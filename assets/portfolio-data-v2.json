@@ -1515,7 +1515,7 @@
     "slug": "tong-jun-residence",
     "title": "Tong Jun Residence",
     "city": "Nanjing",
-    "architect": "Tong Jun",
+    "architect": "Tong Jun and Tong Ming",
     "span": 3,
     "description": "The architect Tong Jun designed this modest family house in 1947. Its domestic rooms, furniture and recent museum use offer an unusually intimate view of a foundational figure in modern Chinese architecture.",
     "index": 23,
@@ -1531,9 +1531,9 @@
         "sourceFile": "PORTRA400-001_06.jpg"
       },
       {
-        "src": "assets/projects/tong-jun-residence/02.webp",
-        "width": 2400,
-        "height": 1600,
+        "src": "assets/projects/tong-jun-residence/02-r2.webp",
+        "width": 1600,
+        "height": 2400,
         "alt": "Tong Jun Residence — photograph 2",
         "sourceFile": "PORTRA400-002_03.jpg"
       },

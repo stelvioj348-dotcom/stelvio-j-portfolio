@@ -13,6 +13,7 @@ let activeProjectSlug = "";
 let direction = "next";
 let touchStartX = null;
 let transitionLocked = false;
+const imageDecodeCache = new Map();
 
 const escapeHtml = (value) =>
   String(value)
@@ -77,25 +78,66 @@ function visibleProjects(city = activeCity) {
 }
 
 function renderNav(currentCity = null) {
-  const cities = ["All", ...new Set(projects.map((project) => project.city))].sort((a, b) => {
-    if (a === "All") return -1;
-    if (b === "All") return 1;
-    return a.localeCompare(b, "en");
-  });
+  const cities = [...new Set(projects.map((project) => project.city))].sort((a, b) =>
+    a.localeCompare(b, "en"),
+  );
+  const links = [
+    { label: "Projects", href: "#projects", current: currentCity === "All" },
+    ...cities.map((city) => ({
+      label: city,
+      href: cityHref(city),
+      current: city === currentCity,
+    })),
+  ];
 
-  cityNav.innerHTML = cities
+  cityNav.innerHTML = links
     .map(
-      (city) =>
-        `<a href="${cityHref(city)}" ${city === currentCity ? 'aria-current="page"' : ""}>${escapeHtml(city)}</a>`,
+      (link) =>
+        `<a href="${link.href}" ${link.current ? 'aria-current="page"' : ""}>${escapeHtml(link.label)}</a>`,
     )
     .join("");
 }
 
-function preload(sources) {
-  sources.filter(Boolean).forEach((src) => {
+function prepareImage(src) {
+  if (!src) return Promise.resolve();
+  if (imageDecodeCache.has(src)) return imageDecodeCache.get(src);
+
+  const promise = new Promise((resolve) => {
     const image = new Image();
+    image.decoding = "async";
+    image.onload = resolve;
+    image.onerror = resolve;
     image.src = src;
+    if (image.complete) resolve();
+  }).then(() => {
+    const decoded = new Image();
+    decoded.decoding = "async";
+    decoded.src = src;
+    return typeof decoded.decode === "function" ? decoded.decode().catch(() => {}) : undefined;
   });
+
+  imageDecodeCache.set(src, promise);
+  return promise;
+}
+
+function preload(sources) {
+  sources.filter(Boolean).forEach((src) => prepareImage(src));
+}
+
+function projectImageFrame(image) {
+  return `
+    <div class="viewer-image-frame">
+      <img
+        class="viewer-image viewer-image--natural"
+        src="${image.src}"
+        width="${image.width}"
+        height="${image.height}"
+        alt="${escapeHtml(image.alt)}"
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
+      />
+    </div>`;
 }
 
 function viewerButtons(previousLabel, nextLabel, previousAction, nextAction) {
@@ -157,7 +199,7 @@ function renderLanding() {
   app.innerHTML = `
     <section class="viewer viewer--home is-${direction}" aria-labelledby="project-title">
       <div class="viewer-stage">
-        <a class="viewer-media viewer-media--link" href="#projects" aria-label="Open project archive">
+        <a class="viewer-media viewer-media--link" href="#project/${project.slug}" aria-label="Open ${escapeHtml(project.title)} details">
           <img
             class="viewer-image"
             src="${project.coverSrc}"
@@ -170,7 +212,7 @@ function renderLanding() {
           />
         </a>
         <aside class="viewer-caption">
-          <h1 id="project-title"><a href="#projects">${escapeHtml(project.title)}</a></h1>
+          <h1 id="project-title"><a href="#project/${project.slug}">${escapeHtml(project.title)}</a></h1>
           <dl class="project-meta">
             <dt>Architect</dt>
             <dd>${escapeHtml(project.architect)}</dd>
@@ -256,18 +298,7 @@ function renderProject(slug) {
   app.innerHTML = `
     <article class="viewer viewer--project is-${direction}" aria-labelledby="project-title">
       <div class="viewer-stage">
-        <figure class="viewer-media">
-          <img
-            class="viewer-image viewer-image--natural"
-            src="${image.src}"
-            width="${image.width}"
-            height="${image.height}"
-            alt="${escapeHtml(image.alt)}"
-            loading="eager"
-            fetchpriority="high"
-            decoding="async"
-          />
-        </figure>
+        <figure class="viewer-media">${projectImageFrame(image)}</figure>
         <aside class="viewer-caption">
           <h1 id="project-title">${escapeHtml(project.title)}</h1>
           <dl class="project-meta">
@@ -293,17 +324,19 @@ function renderProject(slug) {
   syncFullscreenControls();
 }
 
-function runCarouselTransition(step, update) {
+async function runCarouselTransition(step, update, incomingSrc) {
   if (transitionLocked) return;
+  transitionLocked = true;
   direction = step > 0 ? "next" : "previous";
+  await prepareImage(incomingSrc);
   const outgoing = app.querySelector(".viewer-stage")?.cloneNode(true);
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (!outgoing || reduceMotion) {
     update();
+    transitionLocked = false;
     return;
   }
 
-  transitionLocked = true;
   update();
   const viewer = app.querySelector(".viewer");
   const incoming = viewer?.querySelector(".viewer-stage");
@@ -318,32 +351,96 @@ function runCarouselTransition(step, update) {
   outgoing.setAttribute("aria-hidden", "true");
   viewer.append(outgoing);
 
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => viewer.classList.add("carousel-active"));
-  });
+  incoming.getBoundingClientRect();
+  viewer.classList.add("carousel-active");
 
-  window.setTimeout(() => {
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
     outgoing.remove();
     incoming.classList.remove("carousel-layer", "carousel-incoming", `carousel-${direction}`);
     viewer.classList.remove("carousel-transition", "carousel-active");
     transitionLocked = false;
-  }, 560);
+  };
+  incoming.addEventListener("transitionend", finish, { once: true });
+  window.setTimeout(finish, 620);
 }
 
 function moveHome(step) {
+  const nextIndex = (homeIndex + step + projects.length) % projects.length;
   runCarouselTransition(step, () => {
     homeIndex = (homeIndex + step + projects.length) % projects.length;
     renderLanding();
-  });
+  }, projects[nextIndex].coverSrc);
 }
 
-function movePhoto(step) {
+async function movePhoto(step) {
+  if (transitionLocked) return;
   const project = projects.find((item) => item.slug === route().value);
   if (!project?.images.length) return;
-  runCarouselTransition(step, () => {
-    photoIndex = (photoIndex + step + project.images.length) % project.images.length;
-    renderProject(project.slug);
-  });
+  const nextIndex = (photoIndex + step + project.images.length) % project.images.length;
+  const nextImage = project.images[nextIndex];
+  const media = app.querySelector(".viewer--project .viewer-media");
+  const outgoing = media?.querySelector(".viewer-image-frame");
+  if (!media || !outgoing) return;
+
+  transitionLocked = true;
+  direction = step > 0 ? "next" : "previous";
+  await prepareImage(nextImage.src);
+
+  if (route().view !== "project" || route().value !== project.slug) {
+    transitionLocked = false;
+    return;
+  }
+
+  const incomingTemplate = document.createElement("template");
+  incomingTemplate.innerHTML = projectImageFrame(nextImage).trim();
+  const incoming = incomingTemplate.content.firstElementChild;
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const finish = () => {
+    outgoing.remove();
+    incoming.classList.remove("media-carousel-layer", "media-carousel-incoming", `carousel-${direction}`);
+    media.classList.remove("media-carousel-transition", "media-carousel-active");
+    photoIndex = nextIndex;
+    const counter = app.querySelector(".viewer-counter");
+    if (counter) counter.textContent = `${pad(photoIndex + 1)} / ${pad(project.images.length)}`;
+    const previous = project.images[(photoIndex - 1 + project.images.length) % project.images.length];
+    const next = project.images[(photoIndex + 1) % project.images.length];
+    preload([previous.src, next.src]);
+    transitionLocked = false;
+  };
+
+  if (reduceMotion) {
+    media.replaceChildren(incoming);
+    photoIndex = nextIndex;
+    const counter = app.querySelector(".viewer-counter");
+    if (counter) counter.textContent = `${pad(photoIndex + 1)} / ${pad(project.images.length)}`;
+    preload([
+      project.images[(photoIndex - 1 + project.images.length) % project.images.length].src,
+      project.images[(photoIndex + 1) % project.images.length].src,
+    ]);
+    transitionLocked = false;
+    return;
+  }
+
+  outgoing.classList.add("media-carousel-layer", "media-carousel-outgoing", `carousel-${direction}`);
+  incoming.classList.add("media-carousel-layer", "media-carousel-incoming", `carousel-${direction}`);
+  outgoing.setAttribute("aria-hidden", "true");
+  media.classList.add("media-carousel-transition");
+  media.append(incoming);
+  incoming.getBoundingClientRect();
+  media.classList.add("media-carousel-active");
+
+  let finished = false;
+  const finishOnce = () => {
+    if (finished) return;
+    finished = true;
+    finish();
+  };
+  incoming.addEventListener("transitionend", finishOnce, { once: true });
+  window.setTimeout(finishOnce, 620);
 }
 
 function moveCurrent(step) {
@@ -376,7 +473,9 @@ app.addEventListener("click", (event) => {
 });
 
 app.addEventListener("touchstart", (event) => {
-  touchStartX = event.changedTouches[0]?.clientX ?? null;
+  touchStartX = event.target.closest(".viewer-media")
+    ? event.changedTouches[0]?.clientX ?? null
+    : null;
 }, { passive: true });
 
 app.addEventListener("touchend", (event) => {
@@ -415,8 +514,8 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260806-5"),
-  fetch("assets/portfolio-preferences.json?v=20260806-5"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-2"),
+  fetch("assets/portfolio-preferences.json?v=20260807-2"),
 ])
   .then(async ([dataResponse, preferencesResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
