@@ -4,7 +4,7 @@
   --muted: #4c4c4c;
   --line: #d9d9d5;
   --gutter: 32px;
-  --header-height: 50px;
+  --header-height: 58px;
   font-family: sans-serif, -apple-system, BlinkMacSystemFont, "San Francisco", Roboto,
     "Segoe UI", "Helvetica Neue", sans-serif;
   color: var(--muted);
@@ -165,7 +165,7 @@ button { padding: 0; border: 0; background: transparent; }
 .carousel-active .carousel-outgoing.carousel-previous { transform: translate3d(100%, 0, 0); }
 
 .viewer-media {
-  --media-pad-top: 31px;
+  --media-pad-top: 18px;
   --media-pad-right: 30px;
   --media-pad-bottom: 32px;
   --media-pad-left: var(--gutter);
@@ -176,7 +176,7 @@ button { padding: 0; border: 0; background: transparent; }
   min-width: 0;
   min-height: 0;
   margin: 0;
-  padding: 31px 30px 32px var(--gutter);
+  padding: 18px 30px 32px var(--gutter);
   overflow: hidden;
   cursor: default;
 }
@@ -256,7 +256,7 @@ button { padding: 0; border: 0; background: transparent; }
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding: 31px var(--gutter) 32px 0;
+  padding: 18px var(--gutter) 32px 0;
 }
 
 .viewer-kicker,
@@ -375,7 +375,7 @@ body[data-view="contact"] #app {
 }
 
 .archive-view {
-  padding: 24px var(--gutter) 70px;
+  padding: 14px var(--gutter) 70px;
 }
 
 .archive-toolbar {
@@ -460,7 +460,7 @@ body[data-view="contact"] #app {
 
 .profile-view {
   min-height: calc(100svh - var(--header-height));
-  padding: 28px var(--gutter) 84px;
+  padding: 18px var(--gutter) 84px;
 }
 
 .profile-intro {
@@ -792,9 +792,9 @@ body.lightbox-open { overflow: hidden !important; }
 }
 
 @media (max-width: 720px) {
-  :root { --gutter: 15px; --header-height: 80px; }
+  :root { --gutter: 15px; --header-height: 92px; }
 
-  .site-header { display: block; padding-top: 9px; }
+  .site-header { display: block; padding-top: 14px; }
   .identity-nav { justify-content: space-between; gap: 18px; }
   .brand { display: inline-block; }
   .profile-nav { gap: 17px; }
@@ -802,8 +802,8 @@ body.lightbox-open { overflow: hidden !important; }
   .city-nav {
     justify-content: flex-start;
     gap: 17px;
-    margin: 8px 0 0;
-    padding-bottom: 3px;
+    margin: 13px 0 0;
+    padding-bottom: 5px;
   }
 
   .viewer-stage {
@@ -813,11 +813,11 @@ body.lightbox-open { overflow: hidden !important; }
   }
 
   .viewer-media {
-    --media-pad-top: 14px;
+    --media-pad-top: 6px;
     --media-pad-right: var(--gutter);
     --media-pad-bottom: 10px;
     --media-pad-left: var(--gutter);
-    padding: 14px var(--gutter) 10px;
+    padding: 6px var(--gutter) 10px;
   }
 
   .viewer--project .viewer-media {
@@ -838,7 +838,7 @@ body.lightbox-open { overflow: hidden !important; }
   }
 
   .viewer-caption {
-    padding: 11px var(--gutter) 15px;
+    padding: 8px var(--gutter) 15px;
     overflow-y: auto;
     border-top: 1px solid var(--line);
   }
@@ -861,7 +861,7 @@ body.lightbox-open { overflow: hidden !important; }
 
   .viewer-arrow span { width: 30px; opacity: 0.72; }
 
-  .archive-view { padding-top: 18px; }
+  .archive-view { padding-top: 10px; }
   .archive-toolbar { grid-template-columns: auto 1fr; margin-bottom: 20px; }
   .archive-grid { display: block; }
   .archive-card,
@@ -870,7 +870,7 @@ body.lightbox-open { overflow: hidden !important; }
   .archive-card:nth-child(6n + 5),
   .archive-card:nth-child(6n + 6) { margin-top: 0; margin-bottom: 27px; }
 
-  .profile-view { padding: 19px var(--gutter) 58px; }
+  .profile-view { padding: 11px var(--gutter) 58px; }
   .profile-intro { display: block; margin-bottom: 58px; }
   .profile-kicker { margin-bottom: 19px; }
   .profile-intro h1 { margin-bottom: 25px; font-size: 34px; }
