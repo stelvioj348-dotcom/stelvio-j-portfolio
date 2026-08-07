@@ -1,0 +1,23 @@
+[
+  {"category":"URBAN","thumb":"assets/about/thumbs/01-urban.webp","full":"assets/about/full/01-urban.webp","width":2400,"height":1591,"thumbWidth":1200,"thumbHeight":796},
+  {"category":"URBAN","thumb":"assets/about/thumbs/02-urban.webp","full":"assets/about/full/02-urban.webp","width":1796,"height":2400,"thumbWidth":898,"thumbHeight":1200},
+  {"category":"URBAN","thumb":"assets/about/thumbs/03-urban.webp","full":"assets/about/full/03-urban.webp","width":1796,"height":2400,"thumbWidth":898,"thumbHeight":1200},
+  {"category":"URBAN","thumb":"assets/about/thumbs/04-urban.webp","full":"assets/about/full/04-urban.webp","width":2400,"height":1603,"thumbWidth":1200,"thumbHeight":801},
+  {"category":"URBAN","thumb":"assets/about/thumbs/05-urban.webp","full":"assets/about/full/05-urban.webp","width":2400,"height":1591,"thumbWidth":1200,"thumbHeight":796},
+  {"category":"URBAN","thumb":"assets/about/thumbs/06-urban.webp","full":"assets/about/full/06-urban.webp","width":2400,"height":1600,"thumbWidth":1200,"thumbHeight":800},
+  {"category":"URBAN","thumb":"assets/about/thumbs/07-urban.webp","full":"assets/about/full/07-urban.webp","width":2400,"height":1591,"thumbWidth":1200,"thumbHeight":796},
+  {"category":"URBAN","thumb":"assets/about/thumbs/08-urban.webp","full":"assets/about/full/08-urban.webp","width":2400,"height":1591,"thumbWidth":1200,"thumbHeight":796},
+  {"category":"URBAN","thumb":"assets/about/thumbs/09-urban.webp","full":"assets/about/full/09-urban.webp","width":2400,"height":1796,"thumbWidth":1200,"thumbHeight":898},
+  {"category":"URBAN","thumb":"assets/about/thumbs/10-urban.webp","full":"assets/about/full/10-urban.webp","width":2400,"height":1591,"thumbWidth":1200,"thumbHeight":796},
+  {"category":"URBAN","thumb":"assets/about/thumbs/11-urban.webp","full":"assets/about/full/11-urban.webp","width":2400,"height":1591,"thumbWidth":1200,"thumbHeight":796},
+  {"category":"RURAL","thumb":"assets/about/thumbs/12-rural.webp","full":"assets/about/full/12-rural.webp","width":1758,"height":2400,"thumbWidth":879,"thumbHeight":1200},
+  {"category":"RURAL","thumb":"assets/about/thumbs/13-rural.webp","full":"assets/about/full/13-rural.webp","width":2400,"height":1608,"thumbWidth":1200,"thumbHeight":804},
+  {"category":"RURAL","thumb":"assets/about/thumbs/14-rural.webp","full":"assets/about/full/14-rural.webp","width":2400,"height":1591,"thumbWidth":1200,"thumbHeight":796},
+  {"category":"RURAL","thumb":"assets/about/thumbs/15-rural.webp","full":"assets/about/full/15-rural.webp","width":2400,"height":1454,"thumbWidth":1200,"thumbHeight":727},
+  {"category":"RURAL","thumb":"assets/about/thumbs/16-rural.webp","full":"assets/about/full/16-rural.webp","width":2400,"height":1758,"thumbWidth":1200,"thumbHeight":879},
+  {"category":"RURAL","thumb":"assets/about/thumbs/17-rural.webp","full":"assets/about/full/17-rural.webp","width":2400,"height":1758,"thumbWidth":1200,"thumbHeight":879},
+  {"category":"RURAL","thumb":"assets/about/thumbs/18-rural.webp","full":"assets/about/full/18-rural.webp","width":2400,"height":1725,"thumbWidth":1200,"thumbHeight":862},
+  {"category":"RURAL","thumb":"assets/about/thumbs/19-rural.webp","full":"assets/about/full/19-rural.webp","width":2400,"height":1608,"thumbWidth":1200,"thumbHeight":804},
+  {"category":"RURAL","thumb":"assets/about/thumbs/20-rural.webp","full":"assets/about/full/20-rural.webp","width":1590,"height":2400,"thumbWidth":795,"thumbHeight":1200},
+  {"category":"RURAL","thumb":"assets/about/thumbs/21-rural.webp","full":"assets/about/full/21-rural.webp","width":2400,"height":1599,"thumbWidth":1200,"thumbHeight":800}
+]

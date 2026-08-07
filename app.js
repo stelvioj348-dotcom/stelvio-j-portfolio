@@ -1,10 +1,12 @@
 const app = document.querySelector("#app");
 const cityNav = document.querySelector("#city-nav");
+const profileNav = document.querySelector("#profile-nav");
 const brand = document.querySelector(".brand");
 const preferenceKey = "stelvio-portfolio-preferences-v1";
 
 let sourceProjects = [];
 let projects = [];
+let aboutPhotos = [];
 let publishedPreferences = {};
 let homeIndex = 0;
 let photoIndex = 0;
@@ -13,6 +15,10 @@ let activeProjectSlug = "";
 let direction = "next";
 let touchStartX = null;
 let transitionLocked = false;
+let lightboxIndex = 0;
+let lightboxLocked = false;
+let lightboxTouchStartX = null;
+let lightboxReturnFocus = null;
 const imageDecodeCache = new Map();
 
 const escapeHtml = (value) =>
@@ -64,6 +70,8 @@ const route = () => {
     return { view: "project", value: decodeURIComponent(raw.slice(8)) };
   }
   if (raw === "projects") return { view: "archive", value: "All" };
+  if (raw === "about") return { view: "about", value: "All" };
+  if (raw === "contact") return { view: "contact", value: "All" };
   if (raw.startsWith("city/")) {
     return { view: "archive", value: decodeURIComponent(raw.slice(5)) };
   }
@@ -96,6 +104,14 @@ function renderNav(currentCity = null) {
         `<a href="${link.href}" ${link.current ? 'aria-current="page"' : ""}>${escapeHtml(link.label)}</a>`,
     )
     .join("");
+}
+
+function syncProfileNav(currentView) {
+  profileNav.querySelectorAll("a").forEach((link) => {
+    const current = link.getAttribute("href") === `#${currentView}`;
+    if (current) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
 }
 
 function prepareImage(src) {
@@ -277,6 +293,210 @@ function renderArchive(city = "All") {
     </section>`;
 }
 
+function aboutPhotoFrame(photo, index, className = "") {
+  const alt = `28mm Within — ${photo.category} photograph ${index + 1}`;
+  return `
+    <div class="lightbox-frame ${className}">
+      <img
+        src="${photo.full}"
+        width="${photo.width}"
+        height="${photo.height}"
+        alt="${escapeHtml(alt)}"
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
+      />
+    </div>`;
+}
+
+function renderAbout() {
+  document.body.dataset.view = "about";
+  document.title = "About — Stelvio J";
+  renderNav();
+  syncProfileNav("about");
+
+  const gallery = aboutPhotos.length
+    ? aboutPhotos.map((photo, index) => `
+        <figure class="about-photo" style="--order:${index}">
+          <button type="button" data-action="open-about-photo" data-index="${index}" aria-label="Enlarge ${escapeHtml(photo.category)} photograph ${index + 1}">
+            <img
+              src="${photo.thumb}"
+              width="${photo.thumbWidth}"
+              height="${photo.thumbHeight}"
+              alt="28mm Within — ${escapeHtml(photo.category)} photograph ${index + 1}"
+              ${index < 4 ? 'loading="eager" fetchpriority="high"' : 'loading="lazy"'}
+              decoding="async"
+            />
+          </button>
+          <figcaption>${escapeHtml(photo.category)} <span>${pad(index + 1)}</span></figcaption>
+        </figure>`).join("")
+    : '<p class="gallery-empty">The photography selection is being prepared.</p>';
+
+  app.innerHTML = `
+    <section class="profile-view about-view" aria-labelledby="about-title">
+      <header class="profile-intro">
+        <p class="profile-kicker">About / Stelvio J</p>
+        <h1 id="about-title">Jiang Ruiqi</h1>
+        <p class="profile-statement">Jiang Ruiqi is an undergraduate architecture student at Nanjing Tech University and an amateur photographer based in Nanjing, China.</p>
+      </header>
+      <section class="photography-selection" aria-labelledby="photography-title">
+        <header class="selection-header">
+          <h2 id="photography-title">28mm Within</h2>
+          <p>Selected photographs</p>
+          <span>${pad(aboutPhotos.length)} photographs</span>
+        </header>
+        <div class="about-gallery">${gallery}</div>
+      </section>
+    </section>
+    <div class="lightbox" hidden role="dialog" aria-modal="true" aria-labelledby="lightbox-title">
+      <h2 class="visually-hidden" id="lightbox-title">28mm Within photograph viewer</h2>
+      <div class="lightbox-backdrop" data-action="close-lightbox"></div>
+      <div class="lightbox-shell">
+        <button class="lightbox-close" type="button" data-action="close-lightbox">Close</button>
+        <div class="lightbox-stage" aria-live="polite"></div>
+        <button class="lightbox-arrow lightbox-arrow--previous" type="button" data-action="lightbox-previous" aria-label="Previous photograph"><span aria-hidden="true">&larr;</span></button>
+        <button class="lightbox-arrow lightbox-arrow--next" type="button" data-action="lightbox-next" aria-label="Next photograph"><span aria-hidden="true">&rarr;</span></button>
+        <div class="lightbox-meta">
+          <span class="lightbox-category"></span>
+          <span class="lightbox-counter"></span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderContact() {
+  document.body.dataset.view = "contact";
+  document.title = "Contact — Stelvio J";
+  renderNav();
+  syncProfileNav("contact");
+
+  app.innerHTML = `
+    <section class="profile-view contact-view" aria-labelledby="contact-title">
+      <header class="profile-intro contact-intro">
+        <p class="profile-kicker">Contact / Stelvio J</p>
+        <h1 id="contact-title">Jiang Ruiqi</h1>
+        <p class="profile-statement">For architecture, photography, and other enquiries.</p>
+      </header>
+      <dl class="contact-list">
+        <div>
+          <dt>Email</dt>
+          <dd><a href="mailto:stelvioj348@gmail.com">stelvioj348@gmail.com</a></dd>
+        </div>
+        <div>
+          <dt>WeChat</dt>
+          <dd>StelvioJ</dd>
+        </div>
+        <div>
+          <dt>Xiaohongshu</dt>
+          <dd>5676817050</dd>
+        </div>
+        <div>
+          <dt>Instagram</dt>
+          <dd><a href="https://www.instagram.com/stelvio215/" target="_blank" rel="noreferrer">@stelvio215</a></dd>
+        </div>
+      </dl>
+    </section>`;
+}
+
+function updateLightboxMeta() {
+  const photo = aboutPhotos[lightboxIndex];
+  const lightbox = app.querySelector(".lightbox");
+  if (!photo || !lightbox) return;
+  const category = lightbox.querySelector(".lightbox-category");
+  const counter = lightbox.querySelector(".lightbox-counter");
+  if (category) category.textContent = `28mm Within / ${photo.category}`;
+  if (counter) counter.textContent = `${pad(lightboxIndex + 1)} / ${pad(aboutPhotos.length)}`;
+}
+
+function preloadLightboxNeighbors() {
+  if (!aboutPhotos.length) return;
+  const previous = aboutPhotos[(lightboxIndex - 1 + aboutPhotos.length) % aboutPhotos.length];
+  const next = aboutPhotos[(lightboxIndex + 1) % aboutPhotos.length];
+  preload([previous.full, next.full]);
+}
+
+async function openLightbox(index) {
+  const lightbox = app.querySelector(".lightbox");
+  if (!lightbox || !aboutPhotos.length) return;
+  lightboxIndex = ((Number(index) % aboutPhotos.length) + aboutPhotos.length) % aboutPhotos.length;
+  lightboxReturnFocus = document.activeElement;
+  lightbox.hidden = false;
+  document.body.classList.add("lightbox-open");
+  lightbox.querySelector(".lightbox-stage").innerHTML = '<p class="lightbox-loading" role="status">Loading photograph…</p>';
+  updateLightboxMeta();
+  requestAnimationFrame(() => lightbox.classList.add("is-open"));
+  lightbox.querySelector(".lightbox-close")?.focus({ preventScroll: true });
+
+  const photo = aboutPhotos[lightboxIndex];
+  await prepareImage(photo.full);
+  if (lightbox.hidden) return;
+  lightbox.querySelector(".lightbox-stage").innerHTML = aboutPhotoFrame(photo, lightboxIndex);
+  preloadLightboxNeighbors();
+}
+
+function closeLightbox() {
+  const lightbox = app.querySelector(".lightbox");
+  if (!lightbox || lightbox.hidden) return;
+  lightbox.classList.remove("is-open");
+  lightbox.hidden = true;
+  lightboxLocked = false;
+  document.body.classList.remove("lightbox-open");
+  lightboxReturnFocus?.focus?.({ preventScroll: true });
+  lightboxReturnFocus = null;
+}
+
+async function moveLightbox(step) {
+  const lightbox = app.querySelector(".lightbox");
+  if (!lightbox || lightbox.hidden || lightboxLocked || !aboutPhotos.length) return;
+  const nextIndex = (lightboxIndex + step + aboutPhotos.length) % aboutPhotos.length;
+  const nextPhoto = aboutPhotos[nextIndex];
+  const stage = lightbox.querySelector(".lightbox-stage");
+  const outgoing = stage?.querySelector(".lightbox-frame");
+  if (!stage || !outgoing) return;
+
+  lightboxLocked = true;
+  await prepareImage(nextPhoto.full);
+  if (lightbox.hidden) {
+    lightboxLocked = false;
+    return;
+  }
+
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduceMotion) {
+    stage.innerHTML = aboutPhotoFrame(nextPhoto, nextIndex);
+    lightboxIndex = nextIndex;
+    updateLightboxMeta();
+    preloadLightboxNeighbors();
+    lightboxLocked = false;
+    return;
+  }
+
+  const moveDirection = step > 0 ? "next" : "previous";
+  const template = document.createElement("template");
+  template.innerHTML = aboutPhotoFrame(nextPhoto, nextIndex, `lightbox-frame--incoming is-${moveDirection}`).trim();
+  const incoming = template.content.firstElementChild;
+  outgoing.classList.add("lightbox-frame--outgoing", `is-${moveDirection}`);
+  stage.classList.add("lightbox-stage--moving");
+  stage.append(incoming);
+  incoming.getBoundingClientRect();
+  stage.classList.add("lightbox-stage--active");
+
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    outgoing.remove();
+    incoming.className = "lightbox-frame";
+    stage.classList.remove("lightbox-stage--moving", "lightbox-stage--active");
+    lightboxIndex = nextIndex;
+    updateLightboxMeta();
+    preloadLightboxNeighbors();
+    lightboxLocked = false;
+  };
+  incoming.addEventListener("transitionend", finish, { once: true });
+  window.setTimeout(finish, 620);
+}
+
 function renderProject(slug) {
   const project = projects.find((item) => item.slug === slug);
   if (!project) {
@@ -453,11 +673,16 @@ function moveCurrent(step) {
 
 function render() {
   if (!projects.length) return;
+  document.body.classList.remove("lightbox-open");
+  lightboxLocked = false;
   const current = route();
   direction = "next";
   if (current.view === "project") renderProject(current.value);
   else if (current.view === "archive") renderArchive(current.value);
+  else if (current.view === "about") renderAbout();
+  else if (current.view === "contact") renderContact();
   else renderLanding();
+  syncProfileNav(current.view);
   app.focus({ preventScroll: true });
 }
 
@@ -470,17 +695,30 @@ app.addEventListener("click", (event) => {
     "photo-previous": () => movePhoto(-1),
     "photo-next": () => movePhoto(1),
     "toggle-fullscreen": toggleFullscreen,
+    "open-about-photo": () => openLightbox(control.dataset.index),
+    "close-lightbox": closeLightbox,
+    "lightbox-previous": () => moveLightbox(-1),
+    "lightbox-next": () => moveLightbox(1),
   };
   actions[control.dataset.action]?.();
 });
 
 app.addEventListener("touchstart", (event) => {
+  lightboxTouchStartX = event.target.closest(".lightbox-stage")
+    ? event.changedTouches[0]?.clientX ?? null
+    : null;
   touchStartX = event.target.closest(".viewer-media")
     ? event.changedTouches[0]?.clientX ?? null
     : null;
 }, { passive: true });
 
 app.addEventListener("touchend", (event) => {
+  if (lightboxTouchStartX !== null) {
+    const lightboxDistance = (event.changedTouches[0]?.clientX ?? lightboxTouchStartX) - lightboxTouchStartX;
+    lightboxTouchStartX = null;
+    if (Math.abs(lightboxDistance) > 48) moveLightbox(lightboxDistance < 0 ? 1 : -1);
+    return;
+  }
   if (touchStartX === null) return;
   const distance = (event.changedTouches[0]?.clientX ?? touchStartX) - touchStartX;
   touchStartX = null;
@@ -502,11 +740,27 @@ window.addEventListener("storage", (event) => {
   render();
 });
 window.addEventListener("keydown", (event) => {
-  if (event.key === "ArrowLeft" && route().view !== "archive") {
+  const lightbox = app.querySelector(".lightbox");
+  if (lightbox && !lightbox.hidden) {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      moveLightbox(-1);
+    }
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      moveLightbox(1);
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeLightbox();
+    }
+    return;
+  }
+  if (event.key === "ArrowLeft" && ["landing", "project"].includes(route().view)) {
     event.preventDefault();
     moveCurrent(-1);
   }
-  if (event.key === "ArrowRight" && route().view !== "archive") {
+  if (event.key === "ArrowRight" && ["landing", "project"].includes(route().view)) {
     event.preventDefault();
     moveCurrent(1);
   }
@@ -516,18 +770,21 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-6"),
-  fetch("assets/portfolio-preferences.json?v=20260807-6"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-7"),
+  fetch("assets/portfolio-preferences.json?v=20260807-7"),
+  fetch("assets/about-gallery.json?v=20260807-7"),
 ])
-  .then(async ([dataResponse, preferencesResponse]) => {
+  .then(async ([dataResponse, preferencesResponse, aboutResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
     if (!preferencesResponse.ok) throw new Error(`Portfolio preferences returned ${preferencesResponse.status}`);
-    return [await dataResponse.json(), await preferencesResponse.json()];
+    if (!aboutResponse.ok) throw new Error(`About gallery returned ${aboutResponse.status}`);
+    return [await dataResponse.json(), await preferencesResponse.json(), await aboutResponse.json()];
   })
-  .then(([data, preferences]) => {
+  .then(([data, preferences, photography]) => {
     publishedPreferences = preferences;
     sourceProjects = data;
     projects = applyPreferences(data);
+    aboutPhotos = photography;
     render();
   })
   .catch((error) => {
