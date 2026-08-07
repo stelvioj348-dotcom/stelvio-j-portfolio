@@ -43,10 +43,16 @@ let wheelAccumulator = 0;
 let wheelDirection = 0;
 let wheelLastEventTime = 0;
 let wheelLastStepTime = -Infinity;
+let homeAutoplayTimer = null;
+let lightboxClickTimer = null;
+let projectEntryPending = false;
+let projectEntryTimer = null;
 
 const wheelThreshold = 36;
 const wheelGestureResetMs = 180;
 const wheelStepGapMs = 160;
+const homeAutoplayDelay = 8000;
+const lightboxClickDelay = 280;
 
 const escapeHtml = (value) =>
   String(value)
@@ -96,6 +102,79 @@ function wheelNavigationStep(event) {
   wheelAccumulator = 0;
   wheelLastStepTime = now;
   return nextDirection;
+}
+
+function stopHomeAutoplay() {
+  if (homeAutoplayTimer !== null) window.clearTimeout(homeAutoplayTimer);
+  homeAutoplayTimer = null;
+}
+
+function scheduleHomeAutoplay() {
+  stopHomeAutoplay();
+  if (
+    document.hidden
+    || route().view !== "landing"
+    || projects.length < 2
+    || window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  ) return;
+
+  homeAutoplayTimer = window.setTimeout(() => {
+    homeAutoplayTimer = null;
+    if (!document.hidden && route().view === "landing") moveHome(1);
+  }, homeAutoplayDelay);
+}
+
+function clearPendingLightboxClick() {
+  if (lightboxClickTimer !== null) window.clearTimeout(lightboxClickTimer);
+  lightboxClickTimer = null;
+}
+
+function scheduleLightboxPage(step) {
+  if (lightboxScale > 1) return;
+  clearPendingLightboxClick();
+  lightboxClickTimer = window.setTimeout(() => {
+    lightboxClickTimer = null;
+    moveLightbox(step);
+  }, lightboxClickDelay);
+}
+
+function alignProjectBackLink() {
+  const link = app.querySelector(".viewer--project .back-link");
+  if (!link) return;
+  if (!window.matchMedia("(min-width: 721px)").matches) {
+    link.style.removeProperty("--project-back-offset");
+    return;
+  }
+
+  const image = app.querySelector(
+    ".viewer--project .viewer-media .viewer-image-frame:not(.media-carousel-outgoing) .viewer-image",
+  );
+  if (!image) return;
+  const currentOffset = Number.parseFloat(
+    link.style.getPropertyValue("--project-back-offset"),
+  ) || 0;
+  const imageRect = image.getBoundingClientRect();
+  const linkRect = link.getBoundingClientRect();
+  const linkBaseBottom = linkRect.bottom - currentOffset;
+  link.style.setProperty(
+    "--project-back-offset",
+    `${Math.round((imageRect.bottom - linkBaseBottom) * 10) / 10}px`,
+  );
+}
+
+function beginProjectEntry(href) {
+  if (projectEntryPending || !href) return;
+  stopHomeAutoplay();
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    window.location.hash = href.replace(/^#/, "");
+    return;
+  }
+
+  projectEntryPending = true;
+  document.body.classList.add("home-project-exit");
+  window.setTimeout(() => {
+    window.location.hash = href.replace(/^#/, "");
+  }, 190);
 }
 
 const architectWebsiteRules = [
@@ -402,6 +481,7 @@ function renderLanding() {
   preloadAround(projects, homeIndex, (item) => item.coverSrc);
   requestAnimationFrame(syncHomePagingCues);
   syncFullscreenControls();
+  scheduleHomeAutoplay();
 }
 
 function renderArchive(city = "All") {
@@ -554,7 +634,7 @@ function renderContact() {
         </div>
       </header>
       <figure class="contact-portrait">
-        <img src="assets/contact-portrait.webp?v=20260807-41" alt="Illustrated portrait of Jiang Ruiqi" width="720" height="720" decoding="async" />
+        <img src="assets/contact-portrait.webp?v=20260807-47" alt="Illustrated portrait of Jiang Ruiqi" width="720" height="720" decoding="async" />
       </figure>
       <dl class="contact-list">
         <div>
@@ -640,6 +720,7 @@ function zoomLightboxAt(scale, clientX, clientY) {
 }
 
 function resetLightboxTransform() {
+  clearPendingLightboxClick();
   app.querySelectorAll(".lightbox-stage img").forEach((image) => image.style.removeProperty("transform"));
   app.querySelector(".lightbox")?.classList.remove("is-zoomed", "is-dragging");
   lightboxScale = 1;
@@ -700,6 +781,7 @@ function moveLightbox(step) {
   const photos = lightboxPhotos();
   const lightbox = app.querySelector(".lightbox");
   if (!lightbox || lightbox.hidden || !photos.length) return;
+  clearPendingLightboxClick();
   resetLightboxTransform();
   const baseIndex = lightboxTargetIndex ?? lightboxIndex;
   const nextIndex = (baseIndex + step + photos.length) % photos.length;
@@ -785,7 +867,8 @@ function renderProject(slug) {
     return;
   }
 
-  if (activeProjectSlug !== slug) photoIndex = 0;
+  const coverIndex = project.images.findIndex((image) => image.src === project.coverSrc);
+  photoIndex = coverIndex >= 0 ? coverIndex : 0;
   activeProjectSlug = slug;
   photoTargetIndex = null;
   photoIndex = ((photoIndex % project.images.length) + project.images.length) % project.images.length;
@@ -827,8 +910,20 @@ function renderProject(slug) {
     </article>
     ${lightboxMarkup(`${project.title} photograph viewer`)}`;
 
+  if (projectEntryPending) {
+    document.body.classList.remove("home-project-exit");
+    document.body.classList.add("project-entry-arrival");
+    if (projectEntryTimer !== null) window.clearTimeout(projectEntryTimer);
+    projectEntryTimer = window.setTimeout(() => {
+      document.body.classList.remove("project-entry-arrival");
+      projectEntryTimer = null;
+    }, 760);
+  }
+  projectEntryPending = false;
+
   preloadAround(project.images, photoIndex, (item) => item.src);
   syncFullscreenControls();
+  requestAnimationFrame(() => requestAnimationFrame(alignProjectBackLink));
 }
 
 function retargetCarouselLayer(layer, removeClasses, addClasses) {
@@ -862,6 +957,7 @@ function introduceCarouselLayer(layer, shift) {
 }
 
 function moveHome(step) {
+  scheduleHomeAutoplay();
   const baseIndex = homeTargetIndex ?? homeIndex;
   const nextIndex = (baseIndex + step + projects.length) % projects.length;
   const nextProject = projects[nextIndex];
@@ -1010,6 +1106,7 @@ function movePhoto(step) {
     photoIndex = nextIndex;
     photoTargetIndex = null;
     preloadAround(project.images, photoIndex, (item) => item.src);
+    alignProjectBackLink();
     transitionLocked = false;
   };
   incoming.addEventListener("transitionend", finish, { once: true });
@@ -1023,6 +1120,7 @@ function moveCurrent(step) {
 }
 
 function render() {
+  stopHomeAutoplay();
   if (!projects.length) return;
   homeRequestToken += 1;
   homeTransitionToken += 1;
@@ -1038,6 +1136,10 @@ function render() {
   lightboxLocked = false;
   resetWheelNavigation();
   const current = route();
+  if (current.view !== "project") {
+    projectEntryPending = false;
+    document.body.classList.remove("home-project-exit", "project-entry-arrival");
+  }
   direction = "next";
   if (current.view === "project") renderProject(current.value);
   else if (current.view === "archive") renderArchive(current.value);
@@ -1049,8 +1151,30 @@ function render() {
 }
 
 app.addEventListener("click", (event) => {
+  const projectLink = event.target.closest('.viewer--home a[href^="#project/"]');
+  if (
+    !projectLink
+    || route().view !== "landing"
+    || event.button !== 0
+    || event.metaKey
+    || event.ctrlKey
+    || event.shiftKey
+    || event.altKey
+  ) return;
+  event.preventDefault();
+  beginProjectEntry(projectLink.getAttribute("href"));
+});
+
+app.addEventListener("click", (event) => {
   const control = event.target.closest("[data-action]");
-  if (!control) return;
+  if (!control) {
+    if (
+      route().view === "project"
+      && !viewerGestureMoved
+      && event.target.closest(".viewer--project .viewer-image-frame")
+    ) openLightbox(photoTargetIndex ?? photoIndex, "project");
+    return;
+  }
   if (lightboxGestureMoved && control.dataset.action.startsWith("lightbox-")) {
     event.preventDefault();
     return;
@@ -1059,11 +1183,23 @@ app.addEventListener("click", (event) => {
     event.preventDefault();
     return;
   }
+  if (["lightbox-previous", "lightbox-next"].includes(control.dataset.action)) {
+    event.preventDefault();
+    control.blur();
+    if (event.detail > 1) {
+      clearPendingLightboxClick();
+      return;
+    }
+    const step = control.dataset.action === "lightbox-next" ? 1 : -1;
+    if (event.detail === 0) moveLightbox(step);
+    else scheduleLightboxPage(step);
+    return;
+  }
   const actions = {
     "home-previous": () => moveHome(-1),
     "home-next": () => moveHome(1),
-    "photo-previous": () => movePhoto(-1),
-    "photo-next": () => movePhoto(1),
+    "photo-previous": () => openLightbox(photoTargetIndex ?? photoIndex, "project"),
+    "photo-next": () => openLightbox(photoTargetIndex ?? photoIndex, "project"),
     "toggle-fullscreen": toggleFullscreen,
     "open-about-photo": () => openLightbox(control.dataset.index),
     "close-lightbox": closeLightbox,
@@ -1077,8 +1213,22 @@ app.addEventListener("click", (event) => {
 });
 
 app.addEventListener("dblclick", (event) => {
-  if (route().view !== "project" || !event.target.closest(".viewer--project .viewer-image-frame")) return;
-  openLightbox(photoTargetIndex ?? photoIndex, "project");
+  const lightbox = event.target.closest(".lightbox");
+  if (!lightbox || lightbox.hidden || event.target.closest(".lightbox-close")) return;
+  const stage = lightbox.querySelector(".lightbox-stage");
+  if (!stage) return;
+  const stageRect = stage.getBoundingClientRect();
+  if (
+    event.clientX < stageRect.left
+    || event.clientX > stageRect.right
+    || event.clientY < stageRect.top
+    || event.clientY > stageRect.bottom
+  ) return;
+  event.preventDefault();
+  clearPendingLightboxClick();
+  if (lightboxLocked) return;
+  if (lightboxScale > 1) resetLightboxTransform();
+  else zoomLightboxAt(2.25, event.clientX, event.clientY);
 });
 
 app.addEventListener("animationend", (event) => {
@@ -1287,8 +1437,23 @@ brand.addEventListener("click", () => {
 });
 
 window.addEventListener("hashchange", render);
-window.addEventListener("resize", syncHomePagingCues);
-document.addEventListener("fullscreenchange", syncFullscreenControls);
+window.addEventListener("resize", () => {
+  syncHomePagingCues();
+  alignProjectBackLink();
+});
+app.addEventListener("load", (event) => {
+  if (event.target.matches?.(".viewer--project .viewer-image")) {
+    requestAnimationFrame(alignProjectBackLink);
+  }
+}, true);
+document.addEventListener("fullscreenchange", () => {
+  syncFullscreenControls();
+  requestAnimationFrame(alignProjectBackLink);
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) stopHomeAutoplay();
+  else if (route().view === "landing") scheduleHomeAutoplay();
+});
 window.addEventListener("storage", (event) => {
   if (event.key !== preferenceKey) return;
   projects = applyPreferences(sourceProjects);
@@ -1325,11 +1490,11 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-41"),
-  fetch("assets/portfolio-preferences.json?v=20260807-41"),
-  fetch("assets/about-gallery.json?v=20260807-41"),
-  fetch("assets/project-essays.json?v=20260807-41"),
-  fetch("assets/project-equipment.json?v=20260807-41"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-47"),
+  fetch("assets/portfolio-preferences.json?v=20260807-47"),
+  fetch("assets/about-gallery.json?v=20260807-47"),
+  fetch("assets/project-essays.json?v=20260807-47"),
+  fetch("assets/project-equipment.json?v=20260807-47"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
