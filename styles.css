@@ -385,23 +385,23 @@ button { padding: 0; border: 0; background: transparent; }
 .fullscreen-toggle[data-fullscreen-active="true"] .fullscreen-icon--exit { display: block; }
 
 html:fullscreen body {
-  height: 100svh;
+  height: 100dvh;
   overflow: hidden;
 }
 
 html:fullscreen .site-header { display: none; }
-html:fullscreen #app { height: 100svh; }
+html:fullscreen #app { height: 100dvh; }
 
 html:fullscreen .viewer-media {
-  --media-pad-top: clamp(56px, 9svh, 108px);
-  --media-pad-bottom: clamp(56px, 9svh, 108px);
+  --media-pad-top: clamp(88px, 14dvh, 156px);
+  --media-pad-bottom: clamp(88px, 14dvh, 156px);
   padding-top: var(--media-pad-top);
   padding-bottom: var(--media-pad-bottom);
 }
 
 html:fullscreen .lightbox-shell {
-  padding-top: clamp(56px, 9svh, 108px);
-  padding-bottom: clamp(48px, 8svh, 96px);
+  padding-top: clamp(88px, 14dvh, 156px);
+  padding-bottom: clamp(76px, 12dvh, 136px);
 }
 
 body[data-view="archive"] .site-header,
@@ -766,6 +766,9 @@ body.lightbox-open { overflow: hidden !important; }
 
 .lightbox-close:focus-visible { outline: 1px solid var(--ink); outline-offset: 3px; }
 
+.viewer-arrow:focus,
+.lightbox-arrow:focus { outline: none; }
+
 .viewer-arrow {
   position: absolute;
   top: 0;
@@ -790,6 +793,32 @@ body.lightbox-open { overflow: hidden !important; }
 }
 
 .viewer--home .viewer-arrow--next { right: 0; }
+
+.viewer--home { position: relative; }
+
+.viewer--home::before,
+.viewer--home::after {
+  position: absolute;
+  z-index: 12;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-top: 1px solid var(--ink);
+  border-right: 1px solid var(--ink);
+  opacity: 0.55;
+  content: "";
+  pointer-events: none;
+}
+
+.viewer--home::before {
+  left: 10px;
+  transform: translateY(-50%) rotate(-135deg);
+}
+
+.viewer--home::after {
+  right: 10px;
+  transform: translateY(-50%) rotate(45deg);
+}
 
 .viewer--home .viewer-caption a,
 .viewer--home .viewer-tools {
@@ -897,9 +926,9 @@ body.lightbox-open { overflow: hidden !important; }
   }
 
   html:fullscreen .viewer-media {
-    --media-pad-top: max(clamp(42px, 7svh, 72px), env(safe-area-inset-top));
+    --media-pad-top: max(clamp(64px, 11dvh, 104px), env(safe-area-inset-top));
     --media-pad-right: max(24px, env(safe-area-inset-right));
-    --media-pad-bottom: max(clamp(42px, 7svh, 72px), env(safe-area-inset-bottom));
+    --media-pad-bottom: max(clamp(64px, 11dvh, 104px), env(safe-area-inset-bottom));
     --media-pad-left: max(24px, env(safe-area-inset-left));
     padding:
       var(--media-pad-top)

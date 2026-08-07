@@ -681,6 +681,13 @@ function retargetCarouselLayer(layer, removeClasses, addClasses) {
   });
 }
 
+function carouselTranslateX(layer) {
+  const transform = getComputedStyle(layer).transform;
+  if (!transform || transform === "none") return 0;
+  const values = transform.match(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi)?.map(Number) || [];
+  return transform.startsWith("matrix3d") ? values[12] || 0 : values[4] || 0;
+}
+
 function introduceCarouselLayer(layer, shift) {
   layer.style.transition = "none";
   layer.style.transform = `translate3d(${shift}%, 0, 0)`;
@@ -714,9 +721,13 @@ async function moveHome(step) {
   const settled = viewer.querySelector(".viewer-stage:not(.carousel-layer)");
   const outgoing = activeIncoming || settled;
   if (!outgoing) return;
+  let incomingShift = moveDirection === "next" ? 100 : -100;
 
   viewer.querySelectorAll(".carousel-outgoing").forEach((layer) => layer.remove());
   if (activeIncoming) {
+    const viewerWidth = Math.max(1, viewer.getBoundingClientRect().width);
+    const currentShift = carouselTranslateX(activeIncoming) / viewerWidth * 100;
+    incomingShift = currentShift + (moveDirection === "next" ? 100 : -100);
     retargetCarouselLayer(
       activeIncoming,
       ["carousel-incoming", "carousel-next", "carousel-previous"],
@@ -734,7 +745,7 @@ async function moveHome(step) {
   incoming.classList.add("carousel-layer", "carousel-incoming", `carousel-${moveDirection}`);
   viewer.classList.add("carousel-transition", "carousel-active");
   viewer.append(incoming);
-  introduceCarouselLayer(incoming, moveDirection === "next" ? 100 : -100);
+  introduceCarouselLayer(incoming, incomingShift);
 
   document.title = `${nextProject.title} — Stelvio J`;
   renderNav();
@@ -898,6 +909,9 @@ app.addEventListener("click", (event) => {
     "lightbox-previous": () => moveLightbox(-1),
     "lightbox-next": () => moveLightbox(1),
   };
+  if (["home-previous", "home-next", "photo-previous", "photo-next", "lightbox-previous", "lightbox-next"].includes(control.dataset.action)) {
+    control.blur();
+  }
   actions[control.dataset.action]?.();
 });
 
@@ -1105,11 +1119,11 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-27"),
-  fetch("assets/portfolio-preferences.json?v=20260807-27"),
-  fetch("assets/about-gallery.json?v=20260807-27"),
-  fetch("assets/project-essays.json?v=20260807-27"),
-  fetch("assets/project-equipment.json?v=20260807-27"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-29"),
+  fetch("assets/portfolio-preferences.json?v=20260807-29"),
+  fetch("assets/about-gallery.json?v=20260807-29"),
+  fetch("assets/project-essays.json?v=20260807-29"),
+  fetch("assets/project-equipment.json?v=20260807-29"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
