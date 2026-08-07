@@ -16,6 +16,7 @@ let direction = "next";
 let touchStartX = null;
 let transitionLocked = false;
 let lightboxIndex = 0;
+let lightboxMode = "about";
 let lightboxLocked = false;
 let lightboxTouchStartX = null;
 let lightboxReturnFocus = null;
@@ -158,12 +159,8 @@ function projectImageFrame(image) {
 
 function viewerButtons(previousLabel, nextLabel, previousAction, nextAction) {
   return `
-    <button class="viewer-arrow viewer-arrow--previous" type="button" data-action="${previousAction}" aria-label="${escapeHtml(previousLabel)}">
-      <span aria-hidden="true">←</span>
-    </button>
-    <button class="viewer-arrow viewer-arrow--next" type="button" data-action="${nextAction}" aria-label="${escapeHtml(nextLabel)}">
-      <span aria-hidden="true">→</span>
-    </button>`;
+    <button class="viewer-arrow viewer-arrow--previous" type="button" data-action="${previousAction}" aria-label="${escapeHtml(previousLabel)}"></button>
+    <button class="viewer-arrow viewer-arrow--next" type="button" data-action="${nextAction}" aria-label="${escapeHtml(nextLabel)}"></button>`;
 }
 
 function fullscreenControl() {
@@ -302,8 +299,22 @@ function renderArchive(city = "All") {
     </section>`;
 }
 
-function aboutPhotoFrame(photo, index, className = "") {
-  const alt = `28mm Within — ${photo.category} photograph ${index + 1}`;
+function lightboxPhotos() {
+  if (lightboxMode === "project") {
+    const project = projects.find((item) => item.slug === activeProjectSlug);
+    return (project?.images || []).map((image) => ({
+      full: image.src,
+      width: image.width,
+      height: image.height,
+      category: project.title,
+      alt: image.alt,
+    }));
+  }
+  return aboutPhotos;
+}
+
+function lightboxPhotoFrame(photo, index, className = "") {
+  const alt = photo.alt || `28mm Within — ${photo.category} photograph ${index + 1}`;
   return `
     <div class="lightbox-frame ${className}">
       <img
@@ -315,6 +326,24 @@ function aboutPhotoFrame(photo, index, className = "") {
         fetchpriority="high"
         decoding="async"
       />
+    </div>`;
+}
+
+function lightboxMarkup(title) {
+  return `
+    <div class="lightbox" hidden role="dialog" aria-modal="true" aria-labelledby="lightbox-title">
+      <h2 class="visually-hidden" id="lightbox-title">${escapeHtml(title)}</h2>
+      <div class="lightbox-backdrop" data-action="close-lightbox"></div>
+      <div class="lightbox-shell">
+        <button class="lightbox-close" type="button" data-action="close-lightbox">Close</button>
+        <div class="lightbox-stage" aria-live="polite"></div>
+        <button class="lightbox-arrow lightbox-arrow--previous" type="button" data-action="lightbox-previous" aria-label="Previous photograph"></button>
+        <button class="lightbox-arrow lightbox-arrow--next" type="button" data-action="lightbox-next" aria-label="Next photograph"></button>
+        <div class="lightbox-meta">
+          <span class="lightbox-category"></span>
+          <span class="lightbox-counter"></span>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -357,20 +386,7 @@ function renderAbout() {
         <div class="about-gallery">${gallery}</div>
       </section>
     </section>
-    <div class="lightbox" hidden role="dialog" aria-modal="true" aria-labelledby="lightbox-title">
-      <h2 class="visually-hidden" id="lightbox-title">28mm Within photograph viewer</h2>
-      <div class="lightbox-backdrop" data-action="close-lightbox"></div>
-      <div class="lightbox-shell">
-        <button class="lightbox-close" type="button" data-action="close-lightbox">Close</button>
-        <div class="lightbox-stage" aria-live="polite"></div>
-        <button class="lightbox-arrow lightbox-arrow--previous" type="button" data-action="lightbox-previous" aria-label="Previous photograph"><span aria-hidden="true">&larr;</span></button>
-        <button class="lightbox-arrow lightbox-arrow--next" type="button" data-action="lightbox-next" aria-label="Next photograph"><span aria-hidden="true">&rarr;</span></button>
-        <div class="lightbox-meta">
-          <span class="lightbox-category"></span>
-          <span class="lightbox-counter"></span>
-        </div>
-      </div>
-    </div>`;
+    ${lightboxMarkup("28mm Within photograph viewer")}`;
 }
 
 function renderContact() {
@@ -408,26 +424,30 @@ function renderContact() {
 }
 
 function updateLightboxMeta() {
-  const photo = aboutPhotos[lightboxIndex];
+  const photos = lightboxPhotos();
+  const photo = photos[lightboxIndex];
   const lightbox = app.querySelector(".lightbox");
   if (!photo || !lightbox) return;
   const category = lightbox.querySelector(".lightbox-category");
   const counter = lightbox.querySelector(".lightbox-counter");
-  if (category) category.textContent = `28mm Within / ${photo.category}`;
-  if (counter) counter.textContent = `${pad(lightboxIndex + 1)} / ${pad(aboutPhotos.length)}`;
+  if (category) category.textContent = lightboxMode === "project" ? photo.category : `28mm Within / ${photo.category}`;
+  if (counter) counter.textContent = `${pad(lightboxIndex + 1)} / ${pad(photos.length)}`;
 }
 
 function preloadLightboxNeighbors() {
-  if (!aboutPhotos.length) return;
-  const previous = aboutPhotos[(lightboxIndex - 1 + aboutPhotos.length) % aboutPhotos.length];
-  const next = aboutPhotos[(lightboxIndex + 1) % aboutPhotos.length];
+  const photos = lightboxPhotos();
+  if (!photos.length) return;
+  const previous = photos[(lightboxIndex - 1 + photos.length) % photos.length];
+  const next = photos[(lightboxIndex + 1) % photos.length];
   preload([previous.full, next.full]);
 }
 
-async function openLightbox(index) {
+async function openLightbox(index, mode = "about") {
+  lightboxMode = mode;
+  const photos = lightboxPhotos();
   const lightbox = app.querySelector(".lightbox");
-  if (!lightbox || !aboutPhotos.length) return;
-  lightboxIndex = ((Number(index) % aboutPhotos.length) + aboutPhotos.length) % aboutPhotos.length;
+  if (!lightbox || !photos.length) return;
+  lightboxIndex = ((Number(index) % photos.length) + photos.length) % photos.length;
   lightboxReturnFocus = document.activeElement;
   lightbox.hidden = false;
   document.body.classList.add("lightbox-open");
@@ -436,10 +456,10 @@ async function openLightbox(index) {
   requestAnimationFrame(() => lightbox.classList.add("is-open"));
   lightbox.querySelector(".lightbox-close")?.focus({ preventScroll: true });
 
-  const photo = aboutPhotos[lightboxIndex];
+  const photo = photos[lightboxIndex];
   await prepareImage(photo.full);
   if (lightbox.hidden) return;
-  lightbox.querySelector(".lightbox-stage").innerHTML = aboutPhotoFrame(photo, lightboxIndex);
+  lightbox.querySelector(".lightbox-stage").innerHTML = lightboxPhotoFrame(photo, lightboxIndex);
   preloadLightboxNeighbors();
 }
 
@@ -455,10 +475,11 @@ function closeLightbox() {
 }
 
 async function moveLightbox(step) {
+  const photos = lightboxPhotos();
   const lightbox = app.querySelector(".lightbox");
-  if (!lightbox || lightbox.hidden || lightboxLocked || !aboutPhotos.length) return;
-  const nextIndex = (lightboxIndex + step + aboutPhotos.length) % aboutPhotos.length;
-  const nextPhoto = aboutPhotos[nextIndex];
+  if (!lightbox || lightbox.hidden || lightboxLocked || !photos.length) return;
+  const nextIndex = (lightboxIndex + step + photos.length) % photos.length;
+  const nextPhoto = photos[nextIndex];
   const stage = lightbox.querySelector(".lightbox-stage");
   const outgoing = stage?.querySelector(".lightbox-frame");
   if (!stage || !outgoing) return;
@@ -472,7 +493,7 @@ async function moveLightbox(step) {
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (reduceMotion) {
-    stage.innerHTML = aboutPhotoFrame(nextPhoto, nextIndex);
+    stage.innerHTML = lightboxPhotoFrame(nextPhoto, nextIndex);
     lightboxIndex = nextIndex;
     updateLightboxMeta();
     preloadLightboxNeighbors();
@@ -482,7 +503,7 @@ async function moveLightbox(step) {
 
   const moveDirection = step > 0 ? "next" : "previous";
   const template = document.createElement("template");
-  template.innerHTML = aboutPhotoFrame(nextPhoto, nextIndex, `lightbox-frame--incoming is-${moveDirection}`).trim();
+  template.innerHTML = lightboxPhotoFrame(nextPhoto, nextIndex, `lightbox-frame--incoming is-${moveDirection}`).trim();
   const incoming = template.content.firstElementChild;
   outgoing.classList.add("lightbox-frame--outgoing", `is-${moveDirection}`);
   stage.classList.add("lightbox-stage--moving");
@@ -553,7 +574,8 @@ function renderProject(slug) {
         </aside>
         ${viewerButtons("Previous photograph", "Next photograph", "photo-previous", "photo-next")}
       </div>
-    </article>`;
+    </article>
+    ${lightboxMarkup(`${project.title} photograph viewer`)}`;
 
   preload([previous.src, next.src]);
   syncFullscreenControls();
@@ -718,6 +740,11 @@ app.addEventListener("click", (event) => {
   actions[control.dataset.action]?.();
 });
 
+app.addEventListener("dblclick", (event) => {
+  if (route().view !== "project" || !event.target.closest(".viewer--project .viewer-image-frame")) return;
+  openLightbox(photoIndex, "project");
+});
+
 app.addEventListener("touchstart", (event) => {
   lightboxTouchStartX = event.target.closest(".lightbox-stage")
     ? event.changedTouches[0]?.clientX ?? null
@@ -785,11 +812,11 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-22"),
-  fetch("assets/portfolio-preferences.json?v=20260807-22"),
-  fetch("assets/about-gallery.json?v=20260807-22"),
-  fetch("assets/project-essays.json?v=20260807-22"),
-  fetch("assets/project-equipment.json?v=20260807-22"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-23"),
+  fetch("assets/portfolio-preferences.json?v=20260807-23"),
+  fetch("assets/about-gallery.json?v=20260807-23"),
+  fetch("assets/project-essays.json?v=20260807-23"),
+  fetch("assets/project-equipment.json?v=20260807-23"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);

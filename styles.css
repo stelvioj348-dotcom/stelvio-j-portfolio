@@ -197,8 +197,20 @@ button { padding: 0; border: 0; background: transparent; }
 }
 
 .viewer--project .viewer-media {
-  --media-pad-right: clamp(48px, 4.2vw, 72px);
+  --media-pad-right: var(--gutter);
   padding-right: var(--media-pad-right);
+}
+
+.viewer--project .viewer-media::after {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--media-pad-right);
+  background: var(--paper);
+  content: "";
+  pointer-events: none;
 }
 
 .viewer-image-frame {
@@ -210,6 +222,8 @@ button { padding: 0; border: 0; background: transparent; }
   min-width: 0;
   min-height: 0;
 }
+
+.viewer--project .viewer-image-frame { cursor: zoom-in; }
 
 .media-carousel-transition {
   isolation: isolate;
@@ -264,15 +278,6 @@ button { padding: 0; border: 0; background: transparent; }
   max-height: 100%;
   width: auto;
   height: auto;
-}
-
-@media (min-width: 721px) {
-  .viewer--project .viewer-image--natural {
-    width: auto;
-    height: 100%;
-    max-width: none;
-    max-height: 100%;
-  }
 }
 
 .viewer-caption {
@@ -716,10 +721,6 @@ body.lightbox-open { overflow: hidden !important; }
 
 .lightbox-arrow--previous { left: var(--gutter); text-align: left; }
 .lightbox-arrow--next { right: var(--gutter); text-align: right; }
-.lightbox-arrow span { opacity: 0; transition: opacity 160ms ease; }
-.lightbox-arrow:hover span,
-.lightbox-arrow:focus-visible span { opacity: 1; }
-
 .lightbox-meta {
   display: flex;
   justify-content: space-between;
@@ -771,20 +772,6 @@ body.lightbox-open { overflow: hidden !important; }
   position: relative;
   z-index: 11;
 }
-
-.viewer-arrow span {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 96px;
-  opacity: 0;
-  transition: opacity 160ms ease;
-}
-
-.viewer-arrow--previous span { justify-content: flex-start; }
-.viewer-arrow--next span { justify-content: flex-end; }
-.viewer-arrow:hover span, .viewer-arrow:focus-visible span { opacity: 1; }
 
 .brand:focus-visible,
 .profile-nav a:focus-visible,
@@ -939,8 +926,6 @@ body.lightbox-open { overflow: hidden !important; }
 
   .viewer--project .viewer-arrow { height: 56%; }
 
-  .viewer-arrow span { width: 30px; opacity: 0.72; }
-
   .archive-view { padding-top: 10px; }
   .archive-toolbar { grid-template-columns: auto 1fr; margin-bottom: 20px; }
   .archive-grid { display: block; }
@@ -979,7 +964,6 @@ body.lightbox-open { overflow: hidden !important; }
   .lightbox-arrow { width: 44px; }
   .lightbox-arrow--previous { left: max(15px, env(safe-area-inset-left)); }
   .lightbox-arrow--next { right: max(15px, env(safe-area-inset-right)); }
-  .lightbox-arrow span { opacity: 0.72; }
 }
 
 @media (max-height: 630px) and (min-width: 721px) {
