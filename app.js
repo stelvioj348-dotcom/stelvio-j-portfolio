@@ -82,7 +82,7 @@ function renderNav(currentCity = null) {
     a.localeCompare(b, "en"),
   );
   const links = [
-    { label: "Projects", href: "#projects", current: currentCity === "All" },
+    { label: "All", href: "#projects", current: currentCity === "All" },
     ...cities.map((city) => ({
       label: city,
       href: cityHref(city),
@@ -514,8 +514,8 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-2"),
-  fetch("assets/portfolio-preferences.json?v=20260807-2"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-3"),
+  fetch("assets/portfolio-preferences.json?v=20260807-3"),
 ])
   .then(async ([dataResponse, preferencesResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
