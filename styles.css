@@ -199,6 +199,7 @@ button { padding: 0; border: 0; background: transparent; }
 .media-carousel-active .media-carousel-outgoing.carousel-previous { transform: translate3d(110%, 0, 0); }
 
 .media-carousel-layer .viewer-image { animation: none; }
+.carousel-settled .viewer-image { animation: none; }
 
 .viewer-media--link { cursor: pointer; }
 

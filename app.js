@@ -358,6 +358,7 @@ async function runCarouselTransition(step, update, incomingSrc) {
   const finish = () => {
     if (finished) return;
     finished = true;
+    incoming.classList.add("carousel-settled");
     outgoing.remove();
     incoming.classList.remove("carousel-layer", "carousel-incoming", `carousel-${direction}`);
     viewer.classList.remove("carousel-transition", "carousel-active");
@@ -400,6 +401,7 @@ async function movePhoto(step) {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const finish = () => {
+    incoming.classList.add("carousel-settled");
     outgoing.remove();
     incoming.classList.remove("media-carousel-layer", "media-carousel-incoming", `carousel-${direction}`);
     media.classList.remove("media-carousel-transition", "media-carousel-active");
@@ -514,8 +516,8 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-3"),
-  fetch("assets/portfolio-preferences.json?v=20260807-3"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-4"),
+  fetch("assets/portfolio-preferences.json?v=20260807-4"),
 ])
   .then(async ([dataResponse, preferencesResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
