@@ -518,6 +518,7 @@ body[data-view="contact"] #app {
 }
 
 .profile-intro {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 24px;
@@ -528,7 +529,9 @@ body[data-view="contact"] #app {
 }
 
 .profile-kicker {
-  grid-column: 1 / span 2;
+  position: absolute;
+  top: 0;
+  left: 0;
   margin: 2px 0 0;
   color: #8a8a86;
 }
@@ -987,7 +990,7 @@ body.lightbox-open { overflow: hidden !important; }
 
   .profile-view { padding: 11px var(--gutter) 58px; }
   .profile-intro { display: block; margin-bottom: 58px; padding-top: 30px; }
-  .profile-kicker { margin-bottom: 19px; }
+  .profile-kicker { margin-bottom: 0; }
   .profile-intro h1 { margin-bottom: 25px; font-size: 34px; }
   .profile-statement { max-width: 31ch; font-size: 18px; line-height: 1.4; }
   .selection-header { grid-template-columns: auto 1fr; padding-bottom: 17px; }

@@ -15,6 +15,7 @@ let activeProjectSlug = "";
 let direction = "next";
 let viewerGestureMoved = false;
 let viewerPointerStart = null;
+let viewerSwipeTriggered = false;
 let transitionLocked = false;
 let homeTargetIndex = null;
 let homeRequestToken = 0;
@@ -25,6 +26,9 @@ let photoTransitionToken = 0;
 let lightboxIndex = 0;
 let lightboxMode = "about";
 let lightboxLocked = false;
+let lightboxTargetIndex = null;
+let lightboxRequestToken = 0;
+let lightboxTransitionToken = 0;
 let lightboxReturnFocus = null;
 let lightboxScale = 1;
 let lightboxPanX = 0;
@@ -33,6 +37,7 @@ let lightboxPointers = new Map();
 let lightboxDragStart = null;
 let lightboxPinchStart = null;
 let lightboxGestureMoved = false;
+let lightboxSwipeTriggered = false;
 const imageDecodeCache = new Map();
 
 const escapeHtml = (value) =>
@@ -154,6 +159,18 @@ function preload(sources) {
   sources.filter(Boolean).forEach((src) => prepareImage(src));
 }
 
+function preloadAround(items, index, getSource, radius = 2) {
+  if (!items.length) return;
+  const sources = [];
+  for (let offset = 1; offset <= Math.min(radius, items.length - 1); offset += 1) {
+    sources.push(
+      getSource(items[(index - offset + items.length) % items.length]),
+      getSource(items[(index + offset) % items.length]),
+    );
+  }
+  preload(sources);
+}
+
 function projectImageFrame(image) {
   return `
     <div class="viewer-image-frame">
@@ -263,9 +280,6 @@ function renderLanding() {
   homeIndex = ((homeIndex % projects.length) + projects.length) % projects.length;
   homeTargetIndex = null;
   const project = projects[homeIndex];
-  const previous = projects[(homeIndex - 1 + projects.length) % projects.length];
-  const next = projects[(homeIndex + 1) % projects.length];
-
   document.body.dataset.view = "landing";
   document.title = `${project.title} — Stelvio J`;
   renderNav();
@@ -275,7 +289,7 @@ function renderLanding() {
       ${landingStageMarkup(homeIndex)}
     </section>`;
 
-  preload([previous.coverSrc, next.coverSrc]);
+  preloadAround(projects, homeIndex, (item) => item.coverSrc);
   syncFullscreenControls();
 }
 
@@ -447,23 +461,20 @@ function renderContact() {
     </section>`;
 }
 
-function updateLightboxMeta() {
+function updateLightboxMeta(index = lightboxIndex) {
   const photos = lightboxPhotos();
-  const photo = photos[lightboxIndex];
+  const photo = photos[index];
   const lightbox = app.querySelector(".lightbox");
   if (!photo || !lightbox) return;
   const category = lightbox.querySelector(".lightbox-category");
   const counter = lightbox.querySelector(".lightbox-counter");
   if (category) category.textContent = lightboxMode === "project" ? photo.category : `28mm Within / ${photo.category}`;
-  if (counter) counter.textContent = `${pad(lightboxIndex + 1)} / ${pad(photos.length)}`;
+  if (counter) counter.textContent = `${pad(index + 1)} / ${pad(photos.length)}`;
 }
 
-function preloadLightboxNeighbors() {
+function preloadLightboxNeighbors(index = lightboxIndex) {
   const photos = lightboxPhotos();
-  if (!photos.length) return;
-  const previous = photos[(lightboxIndex - 1 + photos.length) % photos.length];
-  const next = photos[(lightboxIndex + 1) % photos.length];
-  preload([previous.full, next.full]);
+  preloadAround(photos, index, (photo) => photo.full);
 }
 
 function activeLightboxImage() {
@@ -523,7 +534,11 @@ function resetLightboxTransform() {
   lightboxPinchStart = null;
 }
 
-async function openLightbox(index, mode = "about") {
+function openLightbox(index, mode = "about") {
+  lightboxRequestToken += 1;
+  lightboxTransitionToken += 1;
+  lightboxTargetIndex = null;
+  lightboxLocked = false;
   lightboxMode = mode;
   lightboxGestureMoved = false;
   const photos = lightboxPhotos();
@@ -540,8 +555,9 @@ async function openLightbox(index, mode = "about") {
   lightbox.querySelector(".lightbox-close")?.focus({ preventScroll: true });
 
   const photo = photos[lightboxIndex];
-  await prepareImage(photo.full);
-  if (lightbox.hidden) return;
+  const requestToken = lightboxRequestToken;
+  prepareImage(photo.full);
+  if (lightbox.hidden || requestToken !== lightboxRequestToken) return;
   lightbox.querySelector(".lightbox-stage").innerHTML = lightboxPhotoFrame(photo, lightboxIndex);
   preloadLightboxNeighbors();
 }
@@ -550,6 +566,9 @@ function closeLightbox() {
   const lightbox = app.querySelector(".lightbox");
   if (!lightbox || lightbox.hidden) return;
   lightbox.classList.remove("is-open");
+  lightboxRequestToken += 1;
+  lightboxTransitionToken += 1;
+  lightboxTargetIndex = null;
   resetLightboxTransform();
   lightboxGestureMoved = false;
   lightbox.hidden = true;
@@ -559,28 +578,28 @@ function closeLightbox() {
   lightboxReturnFocus = null;
 }
 
-async function moveLightbox(step) {
+function moveLightbox(step) {
   const photos = lightboxPhotos();
   const lightbox = app.querySelector(".lightbox");
-  if (!lightbox || lightbox.hidden || lightboxLocked || !photos.length) return;
+  if (!lightbox || lightbox.hidden || !photos.length) return;
   resetLightboxTransform();
-  const nextIndex = (lightboxIndex + step + photos.length) % photos.length;
+  const baseIndex = lightboxTargetIndex ?? lightboxIndex;
+  const nextIndex = (baseIndex + step + photos.length) % photos.length;
   const nextPhoto = photos[nextIndex];
   const stage = lightbox.querySelector(".lightbox-stage");
-  const outgoing = stage?.querySelector(".lightbox-frame");
-  if (!stage || !outgoing) return;
+  if (!stage) return;
 
+  const requestToken = ++lightboxRequestToken;
+  lightboxTargetIndex = nextIndex;
   lightboxLocked = true;
-  await prepareImage(nextPhoto.full);
-  if (lightbox.hidden) {
-    lightboxLocked = false;
-    return;
-  }
+  prepareImage(nextPhoto.full);
+  if (lightbox.hidden || requestToken !== lightboxRequestToken) return;
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (reduceMotion) {
     stage.innerHTML = lightboxPhotoFrame(nextPhoto, nextIndex);
     lightboxIndex = nextIndex;
+    lightboxTargetIndex = null;
     updateLightboxMeta();
     preloadLightboxNeighbors();
     lightboxLocked = false;
@@ -588,23 +607,51 @@ async function moveLightbox(step) {
   }
 
   const moveDirection = step > 0 ? "next" : "previous";
+  const activeIncoming = stage.querySelector(".lightbox-frame--incoming");
+  const settled = stage.querySelector(".lightbox-frame:not(.lightbox-frame--incoming):not(.lightbox-frame--outgoing)");
+  const outgoing = activeIncoming || settled;
+  if (!outgoing) return;
+  let incomingShift = moveDirection === "next" ? 110 : -110;
+
+  stage.querySelectorAll(".lightbox-frame--outgoing").forEach((layer) => layer.remove());
+  if (activeIncoming) {
+    const stageWidth = Math.max(1, stage.getBoundingClientRect().width);
+    const currentShift = carouselTranslateX(activeIncoming) / stageWidth * 100;
+    incomingShift = currentShift + (moveDirection === "next" ? 110 : -110);
+    retargetCarouselLayer(
+      activeIncoming,
+      ["lightbox-frame--incoming", "is-next", "is-previous"],
+      ["lightbox-frame--outgoing", `is-${moveDirection}`],
+    );
+  } else {
+    outgoing.classList.add("lightbox-frame--outgoing", `is-${moveDirection}`);
+    outgoing.getBoundingClientRect();
+  }
+  outgoing.setAttribute("aria-hidden", "true");
+
   const template = document.createElement("template");
   template.innerHTML = lightboxPhotoFrame(nextPhoto, nextIndex, `lightbox-frame--incoming is-${moveDirection}`).trim();
   const incoming = template.content.firstElementChild;
-  outgoing.classList.add("lightbox-frame--outgoing", `is-${moveDirection}`);
   stage.classList.add("lightbox-stage--moving");
   stage.append(incoming);
-  incoming.getBoundingClientRect();
   stage.classList.add("lightbox-stage--active");
+  introduceCarouselLayer(incoming, incomingShift);
+  updateLightboxMeta(nextIndex);
 
+  const transitionToken = ++lightboxTransitionToken;
   let finished = false;
   const finish = () => {
-    if (finished) return;
+    if (finished || transitionToken !== lightboxTransitionToken) return;
     finished = true;
-    outgoing.remove();
+    stage.querySelectorAll(".lightbox-frame").forEach((layer) => {
+      if (layer !== incoming) layer.remove();
+    });
     incoming.className = "lightbox-frame";
+    incoming.style.removeProperty("transition");
+    incoming.style.removeProperty("transform");
     stage.classList.remove("lightbox-stage--moving", "lightbox-stage--active");
     lightboxIndex = nextIndex;
+    lightboxTargetIndex = null;
     updateLightboxMeta();
     preloadLightboxNeighbors();
     lightboxLocked = false;
@@ -626,8 +673,6 @@ function renderProject(slug) {
   photoIndex = ((photoIndex % project.images.length) + project.images.length) % project.images.length;
 
   const image = project.images[photoIndex];
-  const previous = project.images[(photoIndex - 1 + project.images.length) % project.images.length];
-  const next = project.images[(photoIndex + 1) % project.images.length];
   document.body.dataset.view = "project";
   document.title = `${project.title} — Stelvio J`;
   renderNav(project.city);
@@ -664,7 +709,7 @@ function renderProject(slug) {
     </article>
     ${lightboxMarkup(`${project.title} photograph viewer`)}`;
 
-  preload([previous.src, next.src]);
+  preloadAround(project.images, photoIndex, (item) => item.src);
   syncFullscreenControls();
 }
 
@@ -698,7 +743,7 @@ function introduceCarouselLayer(layer, shift) {
   });
 }
 
-async function moveHome(step) {
+function moveHome(step) {
   const baseIndex = homeTargetIndex ?? homeIndex;
   const nextIndex = (baseIndex + step + projects.length) % projects.length;
   const nextProject = projects[nextIndex];
@@ -706,7 +751,7 @@ async function moveHome(step) {
   homeTargetIndex = nextIndex;
   direction = step > 0 ? "next" : "previous";
   const moveDirection = direction;
-  await prepareImage(nextProject.coverSrc);
+  prepareImage(nextProject.coverSrc);
 
   if (requestToken !== homeRequestToken || route().view !== "landing") return;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -767,15 +812,13 @@ async function moveHome(step) {
     homeIndex = nextIndex;
     homeTargetIndex = null;
     transitionLocked = false;
-    const previous = projects[(homeIndex - 1 + projects.length) % projects.length];
-    const next = projects[(homeIndex + 1) % projects.length];
-    preload([previous.coverSrc, next.coverSrc]);
+    preloadAround(projects, homeIndex, (item) => item.coverSrc);
   };
   incoming.addEventListener("transitionend", finish, { once: true });
   window.setTimeout(finish, 1650);
 }
 
-async function movePhoto(step) {
+function movePhoto(step) {
   const project = projects.find((item) => item.slug === route().value);
   if (!project?.images.length) return;
   const baseIndex = photoTargetIndex ?? photoIndex;
@@ -788,7 +831,7 @@ async function movePhoto(step) {
   const moveDirection = direction;
   const requestToken = ++photoRequestToken;
   photoTargetIndex = nextIndex;
-  await prepareImage(nextImage.src);
+  prepareImage(nextImage.src);
 
   if (requestToken !== photoRequestToken || route().view !== "project" || route().value !== project.slug) return;
 
@@ -803,10 +846,7 @@ async function movePhoto(step) {
     photoTargetIndex = null;
     const counter = app.querySelector(".viewer-counter");
     if (counter) counter.textContent = `${pad(photoIndex + 1)} / ${pad(project.images.length)}`;
-    preload([
-      project.images[(photoIndex - 1 + project.images.length) % project.images.length].src,
-      project.images[(photoIndex + 1) % project.images.length].src,
-    ]);
+    preloadAround(project.images, photoIndex, (item) => item.src);
     return;
   }
 
@@ -850,9 +890,7 @@ async function movePhoto(step) {
     media.classList.remove("media-carousel-transition", "media-carousel-active");
     photoIndex = nextIndex;
     photoTargetIndex = null;
-    const previous = project.images[(photoIndex - 1 + project.images.length) % project.images.length];
-    const next = project.images[(photoIndex + 1) % project.images.length];
-    preload([previous.src, next.src]);
+    preloadAround(project.images, photoIndex, (item) => item.src);
     transitionLocked = false;
   };
   incoming.addEventListener("transitionend", finish, { once: true });
@@ -871,8 +909,11 @@ function render() {
   homeTransitionToken += 1;
   photoRequestToken += 1;
   photoTransitionToken += 1;
+  lightboxRequestToken += 1;
+  lightboxTransitionToken += 1;
   homeTargetIndex = null;
   photoTargetIndex = null;
+  lightboxTargetIndex = null;
   transitionLocked = false;
   document.body.classList.remove("lightbox-open");
   lightboxLocked = false;
@@ -930,11 +971,12 @@ app.addEventListener("wheel", (event) => {
 
 app.addEventListener("pointerdown", (event) => {
   const lightbox = event.target.closest(".lightbox");
-  if (!lightbox || lightbox.hidden || lightboxLocked || event.target.closest(".lightbox-close")) return;
+  if (!lightbox || lightbox.hidden || event.target.closest(".lightbox-close")) return;
   if (event.pointerType === "mouse" && event.button !== 0) return;
   lightboxPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
   event.target.setPointerCapture?.(event.pointerId);
   lightboxGestureMoved = false;
+  lightboxSwipeTriggered = false;
 
   if (lightboxPointers.size === 1) {
     lightboxDragStart = {
@@ -945,7 +987,7 @@ app.addEventListener("pointerdown", (event) => {
       panY: lightboxPanY,
     };
     lightbox.classList.toggle("is-dragging", lightboxScale > 1);
-  } else if (lightboxPointers.size === 2) {
+  } else if (lightboxPointers.size === 2 && !lightboxLocked) {
     const [first, second] = [...lightboxPointers.values()];
     lightboxPinchStart = {
       distance: Math.hypot(second.x - first.x, second.y - first.y),
@@ -963,6 +1005,7 @@ app.addEventListener("pointerdown", (event) => {
   if (!event.target.closest(".viewer-stage") || event.target.closest(".lightbox")) return;
   if (event.pointerType === "mouse" && event.button !== 0) return;
   viewerGestureMoved = false;
+  viewerSwipeTriggered = false;
   viewerPointerStart = {
     pointerId: event.pointerId,
     x: event.clientX,
@@ -975,7 +1018,7 @@ app.addEventListener("pointermove", (event) => {
   if (!lightboxPointers.has(event.pointerId)) return;
   lightboxPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
-  if (lightboxPointers.size >= 2 && lightboxPinchStart) {
+  if (!lightboxLocked && lightboxPointers.size >= 2 && lightboxPinchStart) {
     event.preventDefault();
     const [first, second] = [...lightboxPointers.values()];
     const distance = Math.hypot(second.x - first.x, second.y - first.y);
@@ -1002,8 +1045,21 @@ app.addEventListener("pointermove", (event) => {
   if (!lightboxDragStart || lightboxDragStart.pointerId !== event.pointerId) return;
   const deltaX = event.clientX - lightboxDragStart.x;
   const deltaY = event.clientY - lightboxDragStart.y;
-  if (Math.hypot(deltaX, deltaY) > 6) lightboxGestureMoved = true;
-  if (lightboxScale > 1) {
+  if (
+    lightboxScale === 1
+    && lightboxPointers.size === 1
+    && !lightboxSwipeTriggered
+    && Math.abs(deltaX) > 24
+    && Math.abs(deltaX) > Math.abs(deltaY) * 1.1
+  ) {
+    event.preventDefault();
+    lightboxGestureMoved = true;
+    lightboxSwipeTriggered = true;
+    moveLightbox(deltaX < 0 ? 1 : -1);
+    return;
+  }
+  if (!lightboxLocked && lightboxScale > 1) {
+    if (Math.hypot(deltaX, deltaY) > 6) lightboxGestureMoved = true;
     event.preventDefault();
     applyLightboxTransform(
       lightboxScale,
@@ -1018,8 +1074,16 @@ app.addEventListener("pointermove", (event) => {
   const deltaX = event.clientX - viewerPointerStart.x;
   const deltaY = event.clientY - viewerPointerStart.y;
   if (Math.abs(deltaX) > 10 && Math.abs(deltaX) > Math.abs(deltaY)) {
-    viewerGestureMoved = true;
     event.preventDefault();
+  }
+  if (
+    !viewerSwipeTriggered
+    && Math.abs(deltaX) > 24
+    && Math.abs(deltaX) > Math.abs(deltaY) * 1.1
+  ) {
+    viewerGestureMoved = true;
+    viewerSwipeTriggered = true;
+    moveCurrent(deltaX < 0 ? 1 : -1);
   }
 });
 
@@ -1028,10 +1092,10 @@ function finishLightboxPointer(event, allowSwipe) {
   const drag = lightboxDragStart?.pointerId === event.pointerId ? lightboxDragStart : null;
   lightboxPointers.delete(event.pointerId);
 
-  if (allowSwipe && point && drag && lightboxScale === 1) {
+  if (allowSwipe && !lightboxSwipeTriggered && point && drag && lightboxScale === 1) {
     const deltaX = point.x - drag.x;
     const deltaY = point.y - drag.y;
-    if (Math.abs(deltaX) > 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1) {
+    if (Math.abs(deltaX) > 36 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1) {
       lightboxGestureMoved = true;
       moveLightbox(deltaX < 0 ? 1 : -1);
     }
@@ -1063,7 +1127,7 @@ app.addEventListener("pointerup", (event) => {
   const deltaX = event.clientX - viewerPointerStart.x;
   const deltaY = event.clientY - viewerPointerStart.y;
   viewerPointerStart = null;
-  if (Math.abs(deltaX) > 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1) {
+  if (!viewerSwipeTriggered && Math.abs(deltaX) > 36 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1) {
     viewerGestureMoved = true;
     moveCurrent(deltaX < 0 ? 1 : -1);
   }
@@ -1119,11 +1183,11 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-29"),
-  fetch("assets/portfolio-preferences.json?v=20260807-29"),
-  fetch("assets/about-gallery.json?v=20260807-29"),
-  fetch("assets/project-essays.json?v=20260807-29"),
-  fetch("assets/project-equipment.json?v=20260807-29"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-31"),
+  fetch("assets/portfolio-preferences.json?v=20260807-31"),
+  fetch("assets/about-gallery.json?v=20260807-31"),
+  fetch("assets/project-essays.json?v=20260807-31"),
+  fetch("assets/project-equipment.json?v=20260807-31"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
