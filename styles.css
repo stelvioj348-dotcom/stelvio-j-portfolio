@@ -686,6 +686,20 @@ body[data-view="contact"] #app {
   margin: 24px auto 0;
 }
 
+.contact-portrait {
+  grid-row: 1;
+  grid-column: 2;
+  place-self: center;
+  width: clamp(132px, 14vw, 220px);
+  margin: 0;
+}
+
+.contact-portrait img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .contact-list {
   grid-row: 2;
   grid-column: 2;
@@ -1112,6 +1126,10 @@ body.lightbox-open { overflow: hidden !important; }
   }
   .contact-identity { width: 100%; transform: none; }
   .contact-identity .profile-statement { width: auto; margin: 0; }
+  .contact-portrait {
+    width: min(38vw, 150px);
+    margin: 0 auto 54px;
+  }
   .contact-list { width: 100%; }
   .contact-list > div { grid-template-columns: 96px minmax(0, 1fr); gap: 12px; }
   .contact-list dd { font-size: 18px; overflow-wrap: anywhere; }
