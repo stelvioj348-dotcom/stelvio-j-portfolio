@@ -39,20 +39,19 @@ let lightboxPinchStart = null;
 let lightboxGestureMoved = false;
 let lightboxSwipeTriggered = false;
 let lightboxMultiTouchGesture = false;
+let lightboxDismissStart = null;
 const imageDecodeCache = new Map();
 let wheelAccumulator = 0;
 let wheelDirection = 0;
 let wheelLastEventTime = 0;
 let wheelLastStepTime = -Infinity;
 let homeAutoplayTimer = null;
-let lightboxClickTimer = null;
 let projectEntryPending = false;
 
 const wheelThreshold = 36;
 const wheelGestureResetMs = 180;
 const wheelStepGapMs = 160;
 const homeAutoplayDelay = 8000;
-const lightboxClickDelay = 280;
 
 const fluidCursor = document.createElement("div");
 fluidCursor.className = "fluid-cursor";
@@ -125,11 +124,16 @@ function prepareManualRouteTransition(source, targetSelector) {
 
   const morph = document.createElement("span");
   morph.className = "blue-route-morph";
+  if (source.matches(".back-link-bg")) {
+    morph.classList.add("blue-route-morph--pill");
+    morph.textContent = "← Projects";
+  }
   Object.assign(morph.style, {
     top: `${sourceRect.top}px`,
     left: `${sourceRect.left}px`,
     width: `${sourceRect.width}px`,
     height: `${sourceRect.height}px`,
+    "--route-exit-x": `${window.innerWidth - sourceRect.left + sourceRect.width + 40}px`,
   });
   document.body.append(frozen, morph);
   document.body.classList.add("manual-route-transition");
@@ -150,21 +154,17 @@ function playManualRouteTransition() {
       document.body.classList.remove("manual-route-transition", "project-home-return");
       return;
     }
-    const targetRect = target.getBoundingClientRect();
-    active.frozen.classList.add("is-leaving");
-    active.morph.classList.add("is-moving");
-    Object.assign(active.morph.style, {
-      top: `${targetRect.top}px`,
-      left: `${targetRect.left}px`,
-      width: `${targetRect.width}px`,
-      height: `${targetRect.height}px`,
-    });
+    target.classList.add("route-target-reveal");
+    active.morph.classList.add("is-leaving");
+    window.setTimeout(() => active.frozen.classList.add("is-leaving"), 360);
+    window.setTimeout(() => target.classList.add("is-entering"), 520);
     window.setTimeout(() => {
       active.frozen.remove();
       active.morph.remove();
+      target.classList.remove("route-target-reveal", "is-entering");
       if (manualRouteTransition === active) manualRouteTransition = null;
       document.body.classList.remove("manual-route-transition", "project-home-return");
-    }, 820);
+    }, 1100);
   }));
 }
 
@@ -310,20 +310,6 @@ function scheduleHomeAutoplay() {
   }, homeAutoplayDelay);
 }
 
-function clearPendingLightboxClick() {
-  if (lightboxClickTimer !== null) window.clearTimeout(lightboxClickTimer);
-  lightboxClickTimer = null;
-}
-
-function scheduleLightboxPage(step) {
-  if (lightboxScale > 1) return;
-  clearPendingLightboxClick();
-  lightboxClickTimer = window.setTimeout(() => {
-    lightboxClickTimer = null;
-    moveLightbox(step);
-  }, lightboxClickDelay);
-}
-
 function alignProjectBackLink() {
   const link = app.querySelector(".viewer--project .back-link");
   if (!link) return;
@@ -349,7 +335,7 @@ function alignProjectBackLink() {
 }
 
 function beginProjectEntry(href) {
-  if (projectEntryPending || !href) return;
+  if (projectEntryPending || manualRouteTransition || !href) return;
   stopHomeAutoplay();
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     window.location.hash = href.replace(/^#/, "");
@@ -362,7 +348,7 @@ function beginProjectEntry(href) {
 }
 
 function beginHomeReturn() {
-  if (document.body.classList.contains("project-home-return")) return;
+  if (manualRouteTransition || document.body.classList.contains("project-home-return")) return;
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     window.location.hash = "";
     return;
@@ -881,6 +867,23 @@ function activeLightboxImage() {
   return app.querySelector(".lightbox:not([hidden]) .lightbox-frame:not(.lightbox-frame--outgoing) img");
 }
 
+function lightboxPointIsInsideImage(clientX, clientY) {
+  const image = activeLightboxImage();
+  if (!image) return false;
+  const rect = image.getBoundingClientRect();
+  return clientX >= rect.left
+    && clientX <= rect.right
+    && clientY >= rect.top
+    && clientY <= rect.bottom;
+}
+
+function resetLightboxDismissVisual() {
+  const lightbox = app.querySelector(".lightbox");
+  lightbox?.classList.remove("is-pulling-down");
+  lightbox?.style.removeProperty("--lightbox-pull-y");
+  lightboxDismissStart = null;
+}
+
 function clampLightboxPan(scale, panX, panY) {
   const image = activeLightboxImage();
   const stage = app.querySelector(".lightbox:not([hidden]) .lightbox-stage");
@@ -941,7 +944,7 @@ function zoomLightboxAt(scale, clientX, clientY) {
 }
 
 function resetLightboxTransform() {
-  clearPendingLightboxClick();
+  resetLightboxDismissVisual();
   app.querySelectorAll(".lightbox-stage img").forEach((image) => image.style.removeProperty("transform"));
   app.querySelector(".lightbox")?.classList.remove("is-zoomed", "is-dragging");
   lightboxScale = 1;
@@ -1029,7 +1032,6 @@ function moveLightbox(step) {
   const photos = lightboxPhotos();
   const lightbox = app.querySelector(".lightbox");
   if (!lightbox || lightbox.hidden || !photos.length) return;
-  clearPendingLightboxClick();
   resetLightboxTransform();
   const baseIndex = lightboxTargetIndex ?? lightboxIndex;
   const nextIndex = (baseIndex + step + photos.length) % photos.length;
@@ -1429,13 +1431,10 @@ app.addEventListener("click", (event) => {
   if (["lightbox-previous", "lightbox-next"].includes(control.dataset.action)) {
     event.preventDefault();
     control.blur();
-    if (event.detail > 1) {
-      clearPendingLightboxClick();
-      return;
-    }
+    if (event.detail > 1) return;
     const step = control.dataset.action === "lightbox-next" ? 1 : -1;
-    if (event.detail === 0) moveLightbox(step);
-    else scheduleLightboxPage(step);
+    if (event.detail > 0 && lightboxPointIsInsideImage(event.clientX, event.clientY)) return;
+    moveLightbox(step);
     return;
   }
   const actions = {
@@ -1459,17 +1458,8 @@ app.addEventListener("dblclick", (event) => {
   const lightbox = event.target.closest(".lightbox");
   if (!lightbox || lightbox.hidden || event.target.closest(".lightbox-close")) return;
   if (window.matchMedia("(pointer: coarse)").matches) return;
-  const stage = lightbox.querySelector(".lightbox-stage");
-  if (!stage) return;
-  const stageRect = stage.getBoundingClientRect();
-  if (
-    event.clientX < stageRect.left
-    || event.clientX > stageRect.right
-    || event.clientY < stageRect.top
-    || event.clientY > stageRect.bottom
-  ) return;
+  if (!lightboxPointIsInsideImage(event.clientX, event.clientY)) return;
   event.preventDefault();
-  clearPendingLightboxClick();
   settleLightboxForZoom();
   if (lightboxScale > 1) resetLightboxTransform();
   else zoomLightboxAt(2.25, event.clientX, event.clientY);
@@ -1515,6 +1505,17 @@ app.addEventListener("pointerdown", (event) => {
   lightboxSwipeTriggered = false;
 
   if (lightboxPointers.size === 1) {
+    lightboxDismissStart = (
+      event.pointerType === "touch"
+      && window.matchMedia("(max-width: 720px)").matches
+      && lightboxScale === 1
+      && Boolean(event.target.closest(".lightbox-stage"))
+      && !event.target.closest(".lightbox-stage img")
+    ) ? {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+    } : null;
     lightboxDragStart = {
       pointerId: event.pointerId,
       x: event.clientX,
@@ -1526,7 +1527,7 @@ app.addEventListener("pointerdown", (event) => {
   } else if (lightboxPointers.size === 2) {
     lightboxMultiTouchGesture = true;
     lightboxGestureMoved = true;
-    clearPendingLightboxClick();
+    resetLightboxDismissVisual();
     const [first, second] = [...lightboxPointers.values()];
     lightboxPinchStart = {
       distance: Math.hypot(second.x - first.x, second.y - first.y),
@@ -1589,6 +1590,20 @@ app.addEventListener("pointermove", (event) => {
   const deltaX = event.clientX - lightboxDragStart.x;
   const deltaY = event.clientY - lightboxDragStart.y;
   if (
+    lightboxDismissStart?.pointerId === event.pointerId
+    && lightboxScale === 1
+    && lightboxPointers.size === 1
+    && deltaY > 6
+    && deltaY > Math.abs(deltaX) * 1.1
+  ) {
+    event.preventDefault();
+    lightboxGestureMoved = true;
+    const lightbox = app.querySelector(".lightbox:not([hidden])");
+    lightbox?.classList.add("is-pulling-down");
+    lightbox?.style.setProperty("--lightbox-pull-y", `${Math.min(180, deltaY * 0.72)}px`);
+    return;
+  }
+  if (
     lightboxScale === 1
     && lightboxPointers.size === 1
     && !lightboxMultiTouchGesture
@@ -1634,10 +1649,25 @@ app.addEventListener("pointermove", (event) => {
 function finishLightboxPointer(event, allowSwipe) {
   const point = lightboxPointers.get(event.pointerId);
   const drag = lightboxDragStart?.pointerId === event.pointerId ? lightboxDragStart : null;
+  const dismiss = lightboxDismissStart?.pointerId === event.pointerId ? lightboxDismissStart : null;
+  const dismissDeltaX = dismiss && point ? point.x - dismiss.x : 0;
+  const dismissDeltaY = dismiss && point ? point.y - dismiss.y : 0;
+  const dismissIntent = Boolean(
+    dismiss
+    && dismissDeltaY > 12
+    && dismissDeltaY > Math.abs(dismissDeltaX) * 1.1
+  );
   lightboxPointers.delete(event.pointerId);
+
+  if (allowSwipe && dismissIntent && dismissDeltaY >= 96) {
+    closeLightbox();
+    return;
+  }
+  if (dismiss) resetLightboxDismissVisual();
 
   if (
     allowSwipe
+    && !dismissIntent
     && !lightboxMultiTouchGesture
     && !lightboxSwipeTriggered
     && point
@@ -1666,6 +1696,7 @@ function finishLightboxPointer(event, allowSwipe) {
     lightboxDragStart = null;
     lightboxPinchStart = null;
     app.querySelector(".lightbox")?.classList.remove("is-dragging");
+    resetLightboxDismissVisual();
     window.setTimeout(() => {
       lightboxGestureMoved = false;
       lightboxMultiTouchGesture = false;
@@ -1778,13 +1809,13 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-69"),
-  fetch("assets/portfolio-preferences.json?v=20260807-69"),
-  fetch("assets/about-gallery.json?v=20260807-69"),
-  fetch("assets/project-essays.json?v=20260807-69"),
-  fetch("assets/project-equipment.json?v=20260807-69"),
-  fetch("assets/project-hq.json?v=20260807-69"),
-  fetch("assets/project-cover-images.json?v=20260807-69"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-70"),
+  fetch("assets/portfolio-preferences.json?v=20260807-70"),
+  fetch("assets/about-gallery.json?v=20260807-70"),
+  fetch("assets/project-essays.json?v=20260807-70"),
+  fetch("assets/project-equipment.json?v=20260807-70"),
+  fetch("assets/project-hq.json?v=20260807-70"),
+  fetch("assets/project-cover-images.json?v=20260807-70"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse, hqResponse, coversResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
