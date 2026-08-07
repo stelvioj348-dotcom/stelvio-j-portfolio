@@ -234,6 +234,8 @@ function renderLanding() {
             <dd>${escapeHtml(project.architect)}</dd>
             <dt>City</dt>
             <dd>${escapeHtml(project.city)}</dd>
+            <dt>Photographed</dt>
+            <dd>${escapeHtml(project.shootingDate)}</dd>
           </dl>
           <p class="project-description">${escapeHtml(project.description)}</p>
           <div class="viewer-caption-footer">
@@ -276,7 +278,7 @@ function renderArchive(city = "All") {
                 decoding="async"
               />
             </figure>
-            <h2>${escapeHtml(project.title)}</h2>
+            <h2><span>${escapeHtml(project.title)}</span><span class="archive-card-date">${escapeHtml(project.shootingDate)}</span></h2>
           </a>
         </article>`,
     )
@@ -342,7 +344,7 @@ function renderAbout() {
       <section class="photography-selection" aria-labelledby="photography-title">
         <header class="selection-header">
           <h2 id="photography-title">28mm Within</h2>
-          <p>Selected photographs</p>
+          <p>Urban / Nature / Life</p>
           <span>${pad(aboutPhotos.length)} photographs</span>
         </header>
         <div class="about-gallery">${gallery}</div>
@@ -526,6 +528,8 @@ function renderProject(slug) {
             <dd>${escapeHtml(project.architect)}</dd>
             <dt>City</dt>
             <dd>${escapeHtml(project.city)}</dd>
+            <dt>Photographed</dt>
+            <dd>${escapeHtml(project.shootingDate)}</dd>
           </dl>
           <p class="project-description">${escapeHtml(project.description)}</p>
           <div class="viewer-caption-footer">
@@ -770,9 +774,9 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-7"),
-  fetch("assets/portfolio-preferences.json?v=20260807-7"),
-  fetch("assets/about-gallery.json?v=20260807-7"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-8"),
+  fetch("assets/portfolio-preferences.json?v=20260807-8"),
+  fetch("assets/about-gallery.json?v=20260807-8"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);

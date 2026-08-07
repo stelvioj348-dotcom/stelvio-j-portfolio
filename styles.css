@@ -285,7 +285,7 @@ button { padding: 0; border: 0; background: transparent; }
 
 .project-meta {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: 86px minmax(0, 1fr);
   gap: 0 8px;
   margin: 24px 0 0;
 }
@@ -441,11 +441,21 @@ body[data-view="contact"] #app {
 }
 
 .archive-card h2 {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
   margin: 5px 0 0;
   color: var(--ink);
   font-size: 12px;
   font-weight: 400;
   line-height: 18px;
+}
+
+.archive-card-date {
+  flex: 0 0 auto;
+  color: #8a8a86;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .archive-card a:hover img,
@@ -509,13 +519,13 @@ body[data-view="contact"] #app {
 .selection-header span { color: #8a8a86; }
 
 .about-gallery {
-  columns: 3;
-  column-gap: 24px;
+  columns: 4;
+  column-gap: 20px;
 }
 
 .about-photo {
   break-inside: avoid;
-  margin: 0 0 30px;
+  margin: 0 0 22px;
   animation: card-in 420ms cubic-bezier(0.2, 0.72, 0.25, 1) both;
   animation-delay: calc(min(var(--order), 12) * 22ms);
 }
@@ -777,7 +787,7 @@ body.lightbox-open { overflow: hidden !important; }
   .viewer-caption h1 { font-size: 25px; }
   .archive-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 24px 18px; }
   .archive-card { grid-column: span 3; }
-  .about-gallery { columns: 2; column-gap: 20px; }
+  .about-gallery { columns: 3; column-gap: 18px; }
   .profile-intro { gap: 18px; }
   .profile-statement { grid-column: 8 / -1; }
   .project-description {
@@ -843,7 +853,7 @@ body.lightbox-open { overflow: hidden !important; }
   .viewer-caption h1 { max-width: 30ch; font-size: 23px; }
   .viewer-kicker { display: none; }
   .back-link { margin-bottom: 10px; }
-  .project-meta { grid-template-columns: 66px minmax(0, 1fr); margin-top: 15px; }
+  .project-meta { grid-template-columns: 78px minmax(0, 1fr); margin-top: 15px; }
   .project-description { margin-top: 15px; -webkit-line-clamp: 4; }
   .viewer-caption-footer { padding-top: 16px; }
 
@@ -875,8 +885,8 @@ body.lightbox-open { overflow: hidden !important; }
   .profile-statement { max-width: 31ch; font-size: 18px; line-height: 1.4; }
   .selection-header { grid-template-columns: auto 1fr; padding-bottom: 17px; }
   .selection-header span { grid-column: 1 / -1; }
-  .about-gallery { columns: 1; }
-  .about-photo { margin-bottom: 27px; }
+  .about-gallery { columns: 2; column-gap: 15px; }
+  .about-photo { margin-bottom: 21px; }
   .contact-view { display: block; }
   .contact-intro { margin-bottom: 58px; }
   .contact-list { width: 100%; }
