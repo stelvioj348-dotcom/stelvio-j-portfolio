@@ -38,6 +38,7 @@ let lightboxDragStart = null;
 let lightboxPinchStart = null;
 let lightboxGestureMoved = false;
 let lightboxSwipeTriggered = false;
+let lightboxMultiTouchGesture = false;
 const imageDecodeCache = new Map();
 let wheelAccumulator = 0;
 let wheelDirection = 0;
@@ -46,8 +47,6 @@ let wheelLastStepTime = -Infinity;
 let homeAutoplayTimer = null;
 let lightboxClickTimer = null;
 let projectEntryPending = false;
-let projectEntryTimer = null;
-let homeReturnTimer = null;
 
 const wheelThreshold = 36;
 const wheelGestureResetMs = 180;
@@ -65,6 +64,7 @@ let cursorTargetX = 0;
 let cursorTargetY = 0;
 let cursorReady = false;
 let hoveredGalleryItem = null;
+let manualRouteTransition = null;
 
 function cursorControlTarget(target) {
   if (!target) return null;
@@ -106,6 +106,66 @@ function nearbyCursorControl(x, y, directTarget) {
 function renderFluidCursor() {
   if (!finePointerQuery.matches || !cursorReady) return;
   fluidCursor.style.transform = `translate3d(${cursorTargetX}px, ${cursorTargetY}px, 0) translate(-50%, -50%)`;
+}
+
+function prepareManualRouteTransition(source, targetSelector) {
+  if (!source || manualRouteTransition) return;
+  const sourceRect = source.getBoundingClientRect();
+  const appRect = app.getBoundingClientRect();
+  const frozen = app.cloneNode(true);
+  frozen.removeAttribute("id");
+  frozen.removeAttribute("tabindex");
+  frozen.classList.add("route-content-clone");
+  Object.assign(frozen.style, {
+    top: `${appRect.top}px`,
+    left: `${appRect.left}px`,
+    width: `${appRect.width}px`,
+    height: `${appRect.height}px`,
+  });
+
+  const morph = document.createElement("span");
+  morph.className = "blue-route-morph";
+  Object.assign(morph.style, {
+    top: `${sourceRect.top}px`,
+    left: `${sourceRect.left}px`,
+    width: `${sourceRect.width}px`,
+    height: `${sourceRect.height}px`,
+  });
+  document.body.append(frozen, morph);
+  document.body.classList.add("manual-route-transition");
+  manualRouteTransition = { frozen, morph, targetSelector };
+}
+
+function playManualRouteTransition() {
+  const active = manualRouteTransition;
+  if (!active) return;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const target = active.targetSelector === "brand"
+      ? brand.querySelector(".brand-line")
+      : app.querySelector(".back-link-bg");
+    if (!target) {
+      active.frozen.remove();
+      active.morph.remove();
+      manualRouteTransition = null;
+      document.body.classList.remove("manual-route-transition", "project-home-return");
+      return;
+    }
+    const targetRect = target.getBoundingClientRect();
+    active.frozen.classList.add("is-leaving");
+    active.morph.classList.add("is-moving");
+    Object.assign(active.morph.style, {
+      top: `${targetRect.top}px`,
+      left: `${targetRect.left}px`,
+      width: `${targetRect.width}px`,
+      height: `${targetRect.height}px`,
+    });
+    window.setTimeout(() => {
+      active.frozen.remove();
+      active.morph.remove();
+      if (manualRouteTransition === active) manualRouteTransition = null;
+      document.body.classList.remove("manual-route-transition", "project-home-return");
+    }, 820);
+  }));
 }
 
 function syncFluidCursorMode() {
@@ -154,6 +214,7 @@ window.addEventListener("pointermove", (event) => {
   }
   if (!cursorReady) {
     cursorReady = true;
+    fluidCursor.classList.add("is-initializing");
   }
   fluidCursor.classList.add("is-visible");
   fluidCursor.classList.toggle("is-previous", isPrevious);
@@ -161,6 +222,10 @@ window.addEventListener("pointermove", (event) => {
   fluidCursor.classList.toggle("is-magnetic", Boolean(magnet));
   fluidCursor.classList.toggle("is-over-projects", isOverProjects);
   renderFluidCursor();
+  if (fluidCursor.classList.contains("is-initializing")) {
+    fluidCursor.getBoundingClientRect();
+    requestAnimationFrame(() => fluidCursor.classList.remove("is-initializing"));
+  }
 });
 
 window.addEventListener("pointerdown", (event) => {
@@ -283,14 +348,6 @@ function alignProjectBackLink() {
   );
 }
 
-function syncBrandLineMetrics() {
-  const brandRect = brand.getBoundingClientRect();
-  const gutter = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--gutter")) || 0;
-  const lineWidth = Math.max(brandRect.width, window.innerWidth - brandRect.left - gutter);
-  brand.style.setProperty("--brand-line-width", `${lineWidth}px`);
-  brand.style.setProperty("--brand-line-start-scale", String(Math.min(1, brandRect.width / lineWidth)));
-}
-
 function beginProjectEntry(href) {
   if (projectEntryPending || !href) return;
   stopHomeAutoplay();
@@ -300,11 +357,8 @@ function beginProjectEntry(href) {
   }
 
   projectEntryPending = true;
-  syncBrandLineMetrics();
-  document.body.classList.add("home-project-exit");
-  window.setTimeout(() => {
-    window.location.hash = href.replace(/^#/, "");
-  }, 1240);
+  prepareManualRouteTransition(brand.querySelector(".brand-line"), "projects");
+  window.location.hash = href.replace(/^#/, "");
 }
 
 function beginHomeReturn() {
@@ -313,17 +367,10 @@ function beginHomeReturn() {
     window.location.hash = "";
     return;
   }
-  syncBrandLineMetrics();
   brand.classList.remove("is-cursor-hovered");
   document.body.classList.add("project-home-return");
-  window.setTimeout(() => {
-    window.location.hash = "";
-  }, 1240);
-  if (homeReturnTimer !== null) window.clearTimeout(homeReturnTimer);
-  homeReturnTimer = window.setTimeout(() => {
-    document.body.classList.remove("project-home-return");
-    homeReturnTimer = null;
-  }, 1360);
+  prepareManualRouteTransition(app.querySelector(".back-link-bg"), "brand");
+  window.location.hash = "";
 }
 
 const architectWebsiteRules = [
@@ -903,6 +950,7 @@ function resetLightboxTransform() {
   lightboxPointers.clear();
   lightboxDragStart = null;
   lightboxPinchStart = null;
+  lightboxMultiTouchGesture = false;
 }
 
 function settleLightboxForZoom() {
@@ -937,6 +985,7 @@ function openLightbox(index, mode = "about") {
   lightboxLocked = false;
   lightboxMode = mode;
   lightboxGestureMoved = false;
+  lightboxMultiTouchGesture = false;
   resetWheelNavigation();
   const photos = lightboxPhotos();
   const lightbox = app.querySelector(".lightbox");
@@ -1097,7 +1146,10 @@ function renderProject(slug) {
           </dl>
           <p class="project-description">${escapeHtml(project.description)}</p>
           <div class="viewer-caption-footer">
-            <a class="back-link" href="${cityHref(activeCity)}">← Projects</a>
+            <a class="back-link" href="${cityHref(activeCity)}">
+              <span class="back-link-label">← Projects</span>
+              <span class="back-link-bg" aria-hidden="true"></span>
+            </a>
             <span class="viewer-tools">
               <span class="viewer-counter" aria-live="polite">${pad(photoIndex + 1)} / ${pad(project.images.length)}</span>
               ${fullscreenControl()}
@@ -1111,15 +1163,6 @@ function renderProject(slug) {
 
   alignProjectBackLink();
 
-  if (projectEntryPending) {
-    document.body.classList.remove("home-project-exit");
-    document.body.classList.add("project-entry-arrival");
-    if (projectEntryTimer !== null) window.clearTimeout(projectEntryTimer);
-    projectEntryTimer = window.setTimeout(() => {
-      document.body.classList.remove("project-entry-arrival");
-      projectEntryTimer = null;
-    }, 760);
-  }
   projectEntryPending = false;
 
   preloadAround(project.images, photoIndex, (item) => item.src);
@@ -1391,8 +1434,8 @@ app.addEventListener("click", (event) => {
       return;
     }
     const step = control.dataset.action === "lightbox-next" ? 1 : -1;
-    clearPendingLightboxClick();
-    moveLightbox(step);
+    if (event.detail === 0) moveLightbox(step);
+    else scheduleLightboxPage(step);
     return;
   }
   const actions = {
@@ -1414,7 +1457,7 @@ app.addEventListener("click", (event) => {
 
 app.addEventListener("dblclick", (event) => {
   const lightbox = event.target.closest(".lightbox");
-  if (!lightbox || lightbox.hidden || event.target.closest(".lightbox-close, .lightbox-arrow")) return;
+  if (!lightbox || lightbox.hidden || event.target.closest(".lightbox-close")) return;
   if (window.matchMedia("(pointer: coarse)").matches) return;
   const stage = lightbox.querySelector(".lightbox-stage");
   if (!stage) return;
@@ -1481,6 +1524,9 @@ app.addEventListener("pointerdown", (event) => {
     };
     lightbox.classList.toggle("is-dragging", lightboxScale > 1);
   } else if (lightboxPointers.size === 2) {
+    lightboxMultiTouchGesture = true;
+    lightboxGestureMoved = true;
+    clearPendingLightboxClick();
     const [first, second] = [...lightboxPointers.values()];
     lightboxPinchStart = {
       distance: Math.hypot(second.x - first.x, second.y - first.y),
@@ -1545,6 +1591,7 @@ app.addEventListener("pointermove", (event) => {
   if (
     lightboxScale === 1
     && lightboxPointers.size === 1
+    && !lightboxMultiTouchGesture
     && !lightboxSwipeTriggered
     && Math.abs(deltaX) > 24
     && Math.abs(deltaX) > Math.abs(deltaY) * 1.1
@@ -1589,7 +1636,14 @@ function finishLightboxPointer(event, allowSwipe) {
   const drag = lightboxDragStart?.pointerId === event.pointerId ? lightboxDragStart : null;
   lightboxPointers.delete(event.pointerId);
 
-  if (allowSwipe && !lightboxSwipeTriggered && point && drag && lightboxScale === 1) {
+  if (
+    allowSwipe
+    && !lightboxMultiTouchGesture
+    && !lightboxSwipeTriggered
+    && point
+    && drag
+    && lightboxScale === 1
+  ) {
     const deltaX = point.x - drag.x;
     const deltaY = point.y - drag.y;
     if (Math.abs(deltaX) > 36 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1) {
@@ -1612,7 +1666,10 @@ function finishLightboxPointer(event, allowSwipe) {
     lightboxDragStart = null;
     lightboxPinchStart = null;
     app.querySelector(".lightbox")?.classList.remove("is-dragging");
-    window.setTimeout(() => { lightboxGestureMoved = false; }, 0);
+    window.setTimeout(() => {
+      lightboxGestureMoved = false;
+      lightboxMultiTouchGesture = false;
+    }, 0);
   }
 }
 
@@ -1647,9 +1704,28 @@ brand.addEventListener("click", (event) => {
   }
 });
 
-window.addEventListener("hashchange", render);
+function renderRouteTransition() {
+  const sharedTransition = projectEntryPending || document.body.classList.contains("project-home-return");
+  const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (manualRouteTransition) {
+    render();
+    playManualRouteTransition();
+    return;
+  }
+  if (!sharedTransition || reduceMotion || typeof document.startViewTransition !== "function") {
+    render();
+    document.body.classList.remove("project-home-return");
+    return;
+  }
+
+  const transition = document.startViewTransition(() => render());
+  transition.finished.finally(() => {
+    document.body.classList.remove("project-home-return");
+  });
+}
+
+window.addEventListener("hashchange", renderRouteTransition);
 window.addEventListener("resize", () => {
-  syncBrandLineMetrics();
   syncHomePagingCues();
   alignProjectBackLink();
 });
@@ -1702,13 +1778,13 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-67"),
-  fetch("assets/portfolio-preferences.json?v=20260807-67"),
-  fetch("assets/about-gallery.json?v=20260807-67"),
-  fetch("assets/project-essays.json?v=20260807-67"),
-  fetch("assets/project-equipment.json?v=20260807-67"),
-  fetch("assets/project-hq.json?v=20260807-67"),
-  fetch("assets/project-cover-images.json?v=20260807-67"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-69"),
+  fetch("assets/portfolio-preferences.json?v=20260807-69"),
+  fetch("assets/about-gallery.json?v=20260807-69"),
+  fetch("assets/project-essays.json?v=20260807-69"),
+  fetch("assets/project-equipment.json?v=20260807-69"),
+  fetch("assets/project-hq.json?v=20260807-69"),
+  fetch("assets/project-cover-images.json?v=20260807-69"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse, hqResponse, coversResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
