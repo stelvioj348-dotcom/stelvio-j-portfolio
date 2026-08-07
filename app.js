@@ -1663,13 +1663,13 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-62"),
-  fetch("assets/portfolio-preferences.json?v=20260807-62"),
-  fetch("assets/about-gallery.json?v=20260807-62"),
-  fetch("assets/project-essays.json?v=20260807-62"),
-  fetch("assets/project-equipment.json?v=20260807-62"),
-  fetch("assets/project-hq.json?v=20260807-62"),
-  fetch("assets/project-cover-images.json?v=20260807-62"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-63"),
+  fetch("assets/portfolio-preferences.json?v=20260807-63"),
+  fetch("assets/about-gallery.json?v=20260807-63"),
+  fetch("assets/project-essays.json?v=20260807-63"),
+  fetch("assets/project-equipment.json?v=20260807-63"),
+  fetch("assets/project-hq.json?v=20260807-63"),
+  fetch("assets/project-cover-images.json?v=20260807-63"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse, hqResponse, coversResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);

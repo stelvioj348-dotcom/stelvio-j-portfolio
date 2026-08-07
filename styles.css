@@ -570,6 +570,10 @@ body[data-view="contact"] #app {
   transition: opacity 220ms ease, transform 420ms cubic-bezier(0.2, 0.72, 0.25, 1);
 }
 
+@media (hover: hover) and (pointer: fine) {
+  .archive-card a:hover img { transform: scale(1.015); }
+}
+
 .archive-card h2 {
   display: flex;
   justify-content: space-between;
@@ -701,6 +705,10 @@ body[data-view="contact"] #app {
 .about-photo img {
   height: auto;
   transition: opacity 220ms ease, transform 420ms cubic-bezier(0.2, 0.72, 0.25, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .about-photo button:hover img { transform: scale(1.015); }
 }
 
 .about-photo figcaption {
