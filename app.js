@@ -210,6 +210,7 @@ function preloadAround(items, index, getSource, radius = 2) {
 function syncHomePagingCues() {
   const viewer = app.querySelector(".viewer--home");
   if (!viewer) return;
+  if (viewer.classList.contains("carousel-transition")) return;
   if (!window.matchMedia("(max-width: 720px)").matches) {
     viewer.style.removeProperty("--home-previous-cue-offset");
     viewer.style.removeProperty("--home-next-cue-offset");
@@ -854,7 +855,6 @@ function moveHome(step) {
   viewer.classList.add("carousel-transition", "carousel-active");
   viewer.append(incoming);
   introduceCarouselLayer(incoming, incomingShift);
-  requestAnimationFrame(syncHomePagingCues);
 
   document.title = `${nextProject.title} — Stelvio J`;
   renderNav();
@@ -1025,10 +1025,6 @@ app.addEventListener("dblclick", (event) => {
   if (route().view !== "project" || !event.target.closest(".viewer--project .viewer-image-frame")) return;
   openLightbox(photoTargetIndex ?? photoIndex, "project");
 });
-
-app.addEventListener("load", (event) => {
-  if (event.target.matches?.(".viewer--home .viewer-image")) syncHomePagingCues();
-}, true);
 
 app.addEventListener("animationend", (event) => {
   if (event.target.matches?.(".viewer--home .viewer-image")) syncHomePagingCues();
@@ -1257,11 +1253,11 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-34"),
-  fetch("assets/portfolio-preferences.json?v=20260807-34"),
-  fetch("assets/about-gallery.json?v=20260807-34"),
-  fetch("assets/project-essays.json?v=20260807-34"),
-  fetch("assets/project-equipment.json?v=20260807-34"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-35"),
+  fetch("assets/portfolio-preferences.json?v=20260807-35"),
+  fetch("assets/about-gallery.json?v=20260807-35"),
+  fetch("assets/project-essays.json?v=20260807-35"),
+  fetch("assets/project-equipment.json?v=20260807-35"),
 ])
   .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
