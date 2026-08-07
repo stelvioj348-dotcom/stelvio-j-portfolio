@@ -192,7 +192,16 @@ function playManualRouteTransition() {
     arrival.style.setProperty("--route-line-scale-y", String(2 / Math.max(2, targetRect.height)));
     document.body.append(arrival);
   } else {
+    // Freeze brand scale so returnLine matches the natural brand-line width
+    const brandTransition = brand.style.transition;
+    const brandTransform = brand.style.transform;
+    brand.style.transition = "none";
+    brand.style.transform = "";
+    brand.getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
+    brand.style.transition = brandTransition;
+    brand.style.transform = brandTransform;
+
     returnLine = document.createElement("span");
     returnLine.className = "blue-route-return-line";
     Object.assign(returnLine.style, {
