@@ -174,7 +174,7 @@ function beginProjectEntry(href) {
   document.body.classList.add("home-project-exit");
   window.setTimeout(() => {
     window.location.hash = href.replace(/^#/, "");
-  }, 190);
+  }, 320);
 }
 
 const architectWebsiteRules = [
@@ -532,7 +532,8 @@ function lightboxPhotos() {
   if (lightboxMode === "project") {
     const project = projects.find((item) => item.slug === activeProjectSlug);
     return (project?.images || []).map((image) => ({
-      full: image.src,
+      preview: image.src,
+      full: image.full || image.src,
       width: image.width,
       height: image.height,
       category: project.title,
@@ -547,7 +548,8 @@ function lightboxPhotoFrame(photo, index, className = "") {
   return `
     <div class="lightbox-frame ${className}">
       <img
-        src="${photo.full}"
+        src="${photo.preview || photo.full}"
+        data-full-src="${photo.full}"
         width="${photo.width}"
         height="${photo.height}"
         alt="${escapeHtml(alt)}"
@@ -670,7 +672,7 @@ function updateLightboxMeta(index = lightboxIndex) {
 
 function preloadLightboxNeighbors(index = lightboxIndex) {
   const photos = lightboxPhotos();
-  preloadAround(photos, index, (photo) => photo.full);
+  preloadAround(photos, index, (photo) => photo.preview || photo.full);
 }
 
 function activeLightboxImage() {
@@ -700,6 +702,19 @@ function applyLightboxTransform(scale, panX, panY) {
   lightboxPanY = nextScale === 1 ? 0 : nextPan.y;
   image.style.transform = `translate3d(${lightboxPanX}px, ${lightboxPanY}px, 0) scale(${lightboxScale})`;
   lightbox.classList.toggle("is-zoomed", lightboxScale > 1);
+  if (lightboxScale > 1) upgradeActiveLightboxImage();
+}
+
+function upgradeActiveLightboxImage() {
+  const image = activeLightboxImage();
+  const fullSrc = image?.dataset.fullSrc;
+  if (!image || !fullSrc || fullSrc === image.getAttribute("src") || image.dataset.hqRequested) return;
+  image.dataset.hqRequested = "true";
+  prepareImage(fullSrc).then(() => {
+    if (!image.isConnected || image.dataset.fullSrc !== fullSrc) return;
+    image.src = fullSrc;
+    image.dataset.hqLoaded = "true";
+  });
 }
 
 function zoomLightboxAt(scale, clientX, clientY) {
@@ -731,6 +746,31 @@ function resetLightboxTransform() {
   lightboxPinchStart = null;
 }
 
+function settleLightboxForZoom() {
+  if (!lightboxLocked) return;
+  const lightbox = app.querySelector(".lightbox:not([hidden])");
+  const stage = lightbox?.querySelector(".lightbox-stage");
+  if (!stage) return;
+  const active = stage.querySelector(".lightbox-frame--incoming")
+    || stage.querySelector(".lightbox-frame:not(.lightbox-frame--outgoing)");
+  if (!active) return;
+
+  lightboxRequestToken += 1;
+  lightboxTransitionToken += 1;
+  stage.querySelectorAll(".lightbox-frame").forEach((frame) => {
+    if (frame !== active) frame.remove();
+  });
+  active.className = "lightbox-frame";
+  active.style.removeProperty("transition");
+  active.style.removeProperty("transform");
+  stage.classList.remove("lightbox-stage--moving", "lightbox-stage--active");
+  if (lightboxTargetIndex !== null) lightboxIndex = lightboxTargetIndex;
+  lightboxTargetIndex = null;
+  lightboxLocked = false;
+  updateLightboxMeta();
+  preloadLightboxNeighbors();
+}
+
 function openLightbox(index, mode = "about") {
   lightboxRequestToken += 1;
   lightboxTransitionToken += 1;
@@ -754,7 +794,7 @@ function openLightbox(index, mode = "about") {
 
   const photo = photos[lightboxIndex];
   const requestToken = lightboxRequestToken;
-  prepareImage(photo.full);
+  prepareImage(photo.preview || photo.full);
   if (lightbox.hidden || requestToken !== lightboxRequestToken) return;
   lightbox.querySelector(".lightbox-stage").innerHTML = lightboxPhotoFrame(photo, lightboxIndex);
   preloadLightboxNeighbors();
@@ -792,7 +832,7 @@ function moveLightbox(step) {
   const requestToken = ++lightboxRequestToken;
   lightboxTargetIndex = nextIndex;
   lightboxLocked = true;
-  prepareImage(nextPhoto.full);
+  prepareImage(nextPhoto.preview || nextPhoto.full);
   if (lightbox.hidden || requestToken !== lightboxRequestToken) return;
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1198,8 +1238,8 @@ app.addEventListener("click", (event) => {
   const actions = {
     "home-previous": () => moveHome(-1),
     "home-next": () => moveHome(1),
-    "photo-previous": () => openLightbox(photoTargetIndex ?? photoIndex, "project"),
-    "photo-next": () => openLightbox(photoTargetIndex ?? photoIndex, "project"),
+    "photo-previous": () => movePhoto(-1),
+    "photo-next": () => movePhoto(1),
     "toggle-fullscreen": toggleFullscreen,
     "open-about-photo": () => openLightbox(control.dataset.index),
     "close-lightbox": closeLightbox,
@@ -1215,6 +1255,7 @@ app.addEventListener("click", (event) => {
 app.addEventListener("dblclick", (event) => {
   const lightbox = event.target.closest(".lightbox");
   if (!lightbox || lightbox.hidden || event.target.closest(".lightbox-close")) return;
+  if (window.matchMedia("(pointer: coarse)").matches) return;
   const stage = lightbox.querySelector(".lightbox-stage");
   if (!stage) return;
   const stageRect = stage.getBoundingClientRect();
@@ -1226,7 +1267,7 @@ app.addEventListener("dblclick", (event) => {
   ) return;
   event.preventDefault();
   clearPendingLightboxClick();
-  if (lightboxLocked) return;
+  settleLightboxForZoom();
   if (lightboxScale > 1) resetLightboxTransform();
   else zoomLightboxAt(2.25, event.clientX, event.clientY);
 });
@@ -1278,7 +1319,7 @@ app.addEventListener("pointerdown", (event) => {
       panY: lightboxPanY,
     };
     lightbox.classList.toggle("is-dragging", lightboxScale > 1);
-  } else if (lightboxPointers.size === 2 && !lightboxLocked) {
+  } else if (lightboxPointers.size === 2) {
     const [first, second] = [...lightboxPointers.values()];
     lightboxPinchStart = {
       distance: Math.hypot(second.x - first.x, second.y - first.y),
@@ -1309,7 +1350,7 @@ app.addEventListener("pointermove", (event) => {
   if (!lightboxPointers.has(event.pointerId)) return;
   lightboxPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
-  if (!lightboxLocked && lightboxPointers.size >= 2 && lightboxPinchStart) {
+  if (lightboxPointers.size >= 2 && lightboxPinchStart) {
     event.preventDefault();
     const [first, second] = [...lightboxPointers.values()];
     const distance = Math.hypot(second.x - first.x, second.y - first.y);
@@ -1349,7 +1390,7 @@ app.addEventListener("pointermove", (event) => {
     moveLightbox(deltaX < 0 ? 1 : -1);
     return;
   }
-  if (!lightboxLocked && lightboxScale > 1) {
+  if (lightboxScale > 1) {
     if (Math.hypot(deltaX, deltaY) > 6) lightboxGestureMoved = true;
     event.preventDefault();
     applyLightboxTransform(
@@ -1490,29 +1531,36 @@ window.addEventListener("keydown", (event) => {
 });
 
 Promise.all([
-  fetch("assets/portfolio-data-v2.json?v=20260807-47"),
-  fetch("assets/portfolio-preferences.json?v=20260807-47"),
-  fetch("assets/about-gallery.json?v=20260807-47"),
-  fetch("assets/project-essays.json?v=20260807-47"),
-  fetch("assets/project-equipment.json?v=20260807-47"),
+  fetch("assets/portfolio-data-v2.json?v=20260807-50"),
+  fetch("assets/portfolio-preferences.json?v=20260807-50"),
+  fetch("assets/about-gallery.json?v=20260807-50"),
+  fetch("assets/project-essays.json?v=20260807-50"),
+  fetch("assets/project-equipment.json?v=20260807-50"),
+  fetch("assets/project-hq.json?v=20260807-50"),
 ])
-  .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse]) => {
+  .then(async ([dataResponse, preferencesResponse, aboutResponse, essaysResponse, equipmentResponse, hqResponse]) => {
     if (!dataResponse.ok) throw new Error(`Portfolio data returned ${dataResponse.status}`);
     if (!preferencesResponse.ok) throw new Error(`Portfolio preferences returned ${preferencesResponse.status}`);
     if (!aboutResponse.ok) throw new Error(`About gallery returned ${aboutResponse.status}`);
     if (!essaysResponse.ok) throw new Error(`Project essays returned ${essaysResponse.status}`);
     if (!equipmentResponse.ok) throw new Error(`Project equipment returned ${equipmentResponse.status}`);
+    if (!hqResponse.ok) throw new Error(`High-resolution photographs returned ${hqResponse.status}`);
     return [
       await dataResponse.json(),
       await preferencesResponse.json(),
       await aboutResponse.json(),
       await essaysResponse.json(),
       await equipmentResponse.json(),
+      await hqResponse.json(),
     ];
   })
-  .then(([data, preferences, photography, essays, equipment]) => {
+  .then(([data, preferences, photography, essays, equipment, highResolution]) => {
     const enrichedData = data.map((project) => ({
       ...project,
+      images: project.images.map((image, index) => ({
+        ...image,
+        full: highResolution[project.slug]?.[index]?.src || image.src,
+      })),
       description: essays[project.slug] || project.description,
       camera: equipment[project.slug]?.camera || "Not specified",
       focalLength: equipment[project.slug]?.focalLength || "Not specified",
