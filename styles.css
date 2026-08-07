@@ -266,6 +266,15 @@ button { padding: 0; border: 0; background: transparent; }
   height: auto;
 }
 
+@media (min-width: 721px) {
+  .viewer--project .viewer-image--natural {
+    width: auto;
+    height: 100%;
+    max-width: none;
+    max-height: 100%;
+  }
+}
+
 .viewer-caption {
   position: relative;
   display: flex;
@@ -276,7 +285,6 @@ button { padding: 0; border: 0; background: transparent; }
 
 .viewer-kicker,
 .viewer-caption h1,
-.project-meta,
 .back-link { max-width: 34ch; }
 
 .project-description {
@@ -754,6 +762,14 @@ body.lightbox-open { overflow: hidden !important; }
   padding-right: var(--gutter);
   text-align: right;
   cursor: e-resize;
+}
+
+.viewer--home .viewer-arrow--next { right: 0; }
+
+.viewer--home .viewer-caption a,
+.viewer--home .viewer-tools {
+  position: relative;
+  z-index: 11;
 }
 
 .viewer-arrow span {
