@@ -1331,10 +1331,14 @@ body.lightbox-open { overflow: hidden !important; }
   transform: translateY(-50%);
 }
 
+.viewer--home .viewer-caption {
+  z-index: 13;
+}
+
 .viewer--home .viewer-caption a,
 .viewer--home .viewer-tools {
   position: relative;
-  z-index: 13;
+  z-index: 1;
 }
 
 .brand:focus-visible,
