@@ -196,7 +196,7 @@ function playManualRouteTransition() {
     const brandTransition = brand.style.transition;
     const brandTransform = brand.style.transform;
     brand.style.transition = "none";
-    brand.style.transform = "";
+    brand.style.transform = "scale(1)";
     brand.getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
     brand.style.transition = brandTransition;
@@ -278,10 +278,8 @@ window.addEventListener("pointermove", (event) => {
     const isProjectTitle = Boolean(magnet.closest(".viewer-caption h1"));
     cursorTargetX = rect.left + rect.width / 2;
     cursorTargetY = rect.top + rect.height / 2;
-    const magnetWidth = isProjectTitle ? Math.max(28, rect.width + 28) : Math.max(22, Math.min(rect.width + 4, 52));
-    const magnetHeight = isProjectTitle ? Math.max(24, rect.height + 10) : Math.max(16, Math.min(rect.height + 2, 26));
-    fluidCursor.style.setProperty("--cursor-magnet-width", `${magnetWidth}px`);
-    fluidCursor.style.setProperty("--cursor-magnet-height", `${magnetHeight}px`);
+    fluidCursor.style.setProperty("--cursor-magnet-width", `${Math.max(24, rect.width + (isProjectTitle ? 28 : 18))}px`);
+    fluidCursor.style.setProperty("--cursor-magnet-height", `${Math.max(24, rect.height + (isProjectTitle ? 10 : 0))}px`);
   } else if (isNearProjects && nearby) {
     const centerX = nearby.rect.left + nearby.rect.width / 2;
     const centerY = nearby.rect.top + nearby.rect.height / 2;
@@ -323,16 +321,24 @@ window.addEventListener("pointermove", (event) => {
 
 window.addEventListener("pointerdown", (event) => {
   if (finePointerQuery.matches && event.pointerType !== "touch") fluidCursor.classList.add("is-pressed");
+  // Forward clicks to magnet control when cursor is wrapped around it
   if (
     cursorMagnetControl
     && finePointerQuery.matches
     && event.pointerType !== "touch"
     && !cursorMagnetControl.contains(event.target)
+    && cursorMagnetControl.closest("#city-nav")  // only nav controls; avoid blank-space reopen
   ) {
-    event.preventDefault();
-    event.stopPropagation();
-    cursorMagnetControl.click();
-    cursorMagnetControl.focus?.();
+    const magnetRect = cursorMagnetControl.getBoundingClientRect();
+    const dist = Math.hypot(
+      Math.max(0, magnetRect.left - event.clientX, event.clientX - magnetRect.right),
+      Math.max(0, magnetRect.top - event.clientY, event.clientY - magnetRect.bottom)
+    );
+    if (dist <= 24) {
+      event.preventDefault();
+      cursorMagnetControl.click();
+      cursorMagnetControl.focus?.();
+    }
   }
 });
 window.addEventListener("pointerup", () => fluidCursor.classList.remove("is-pressed"));
@@ -581,7 +587,7 @@ const route = () => {
   if (raw.startsWith("year/")) return { view: "archive", filterType: "year", value: decodeURIComponent(raw.slice(5)) };
   if (raw.startsWith("architect/")) return { view: "archive", filterType: "architect", value: decodeURIComponent(raw.slice(10)) };
   if (raw.startsWith("camera/")) return { view: "archive", filterType: "camera", value: decodeURIComponent(raw.slice(7)) };
-  if (raw.startsWith("focal/")) return { view: "archive", filterType: "focal", value: decodeURIComponent(raw.slice(6)) };
+  if (raw.startsWith("medium/")) return { view: "archive", filterType: "medium", value: decodeURIComponent(raw.slice(7)) };
   return { view: "landing", value: "All" };
 };
 
@@ -589,6 +595,16 @@ const cityHref = (city) =>
   city === "All" ? "#projects" : `#city/${encodeURIComponent(city)}`;
 
 const splitIndexedValues = (value) => String(value || "").split(/\s+\/\s+/).map((item) => item.trim()).filter(Boolean);
+
+function detectMedium(camera) {
+  const digitalBrands = ["OPPO", "Ricoh", "Sigma", "iPhone"];
+  const parts = String(camera || "").split(/\s*\/\s*/);
+  const hasDigital = parts.some((part) => digitalBrands.some((brand) => part.toLowerCase().includes(brand.toLowerCase())));
+  const hasFilm = parts.some((part) => !digitalBrands.some((brand) => part.toLowerCase().includes(brand.toLowerCase())));
+  if (hasDigital && hasFilm) return "Film / Digital";
+  if (hasDigital) return "Digital";
+  return "Film";
+}
 const projectYears = (project) => String(project.shootingDate || "").match(/\d{4}/g) || [];
 
 function filterHref(type, value) {
@@ -602,7 +618,7 @@ function visibleProjects(filter = activeArchiveFilter) {
   if (filter.type === "year") return projects.filter((project) => projectYears(project).includes(filter.value));
   if (filter.type === "architect") return projects.filter((project) => project.architect === filter.value);
   if (filter.type === "camera") return projects.filter((project) => splitIndexedValues(project.camera).includes(filter.value));
-  if (filter.type === "focal") return projects.filter((project) => splitIndexedValues(project.focalLength).includes(filter.value));
+  if (filter.type === "medium") return projects.filter((project) => project.medium === filter.value);
   return projects;
 }
 
@@ -615,7 +631,7 @@ function filterOptions(type) {
         ? projects.map((project) => project.architect)
         : type === "camera"
           ? projects.flatMap((project) => splitIndexedValues(project.camera))
-          : projects.flatMap((project) => splitIndexedValues(project.focalLength));
+          : projects.map((project) => project.medium);
   return [...new Set(values)].sort((a, b) => type === "year" ? b.localeCompare(a) : a.localeCompare(b, "en"));
 }
 
@@ -625,7 +641,7 @@ function renderNav(currentType = null, currentValue = null) {
     ["year", "Year"],
     ["architect", "Architect"],
     ["camera", "Camera"],
-    ["focal", "Focal Length"],
+    ["medium", "Medium"],
   ];
   cityNav.innerHTML = `
     <a class="nav-pill nav-pill--all" href="#projects" ${currentType === "all" ? 'aria-current="page"' : ""}>All</a>
@@ -838,8 +854,8 @@ function landingStageMarkup(index) {
           <dd>${indexedMetaLinks("year", project.shootingDate)}</dd>
           <dt>Camera</dt>
           <dd>${indexedMetaLinks("camera", project.camera)}</dd>
-          <dt>Focal Length</dt>
-          <dd>${indexedMetaLinks("focal", project.focalLength)}</dd>
+          <dt>Medium</dt>
+          <dd>${indexedMetaLinks("medium", project.medium)}</dd>
         </dl>
         <p class="project-description">${escapeHtml(project.description)}</p>
         <div class="viewer-caption-footer">
@@ -880,7 +896,7 @@ function renderLanding() {
 }
 
 function renderArchive(filterType = "all", value = "All") {
-  const validType = ["city", "year", "architect", "camera", "focal"].includes(filterType) ? filterType : "all";
+  const validType = ["city", "year", "architect", "camera", "medium"].includes(filterType) ? filterType : "all";
   const options = validType === "all" ? ["All"] : filterOptions(validType);
   const normalizedValue = options.includes(value) ? value : "All";
   const normalizedType = normalizedValue === "All" ? "all" : validType;
@@ -1403,8 +1419,8 @@ function renderProject(slug) {
             <dd>${indexedMetaLinks("year", project.shootingDate)}</dd>
             <dt>Camera</dt>
             <dd>${indexedMetaLinks("camera", project.camera)}</dd>
-            <dt>Focal Length</dt>
-            <dd>${indexedMetaLinks("focal", project.focalLength)}</dd>
+            <dt>Medium</dt>
+            <dd>${indexedMetaLinks("medium", project.medium)}</dd>
           </dl>
           <p class="project-description">${escapeHtml(project.description)}</p>
           <div class="viewer-caption-footer">
@@ -2143,7 +2159,7 @@ Promise.all([
       })),
       description: essays[project.slug] || project.description,
       camera: equipment[project.slug]?.camera || "Not specified",
-      focalLength: equipment[project.slug]?.focalLength || "Not specified",
+      medium: detectMedium(equipment[project.slug]?.camera),
     }));
     publishedPreferences = preferences;
     sourceProjects = enrichedData;
