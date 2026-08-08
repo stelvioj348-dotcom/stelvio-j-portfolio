@@ -50,7 +50,7 @@ button { padding: 0; border: 0; background: transparent; }
   width: 13px;
   height: 13px;
   border-radius: 50%;
-  background: #20D2E2;
+  background: #1DB8DA;
   opacity: 0;
   pointer-events: none;
   transform: translate3d(-20px, -20px, 0);
@@ -62,7 +62,7 @@ button { padding: 0; border: 0; background: transparent; }
 .fluid-cursor::before {
   position: absolute;
   inset: 0;
-  background: #20D2E2;
+  background: #1DB8DA;
   content: "";
   opacity: 0;
   transform: scale(0.72);
@@ -177,7 +177,7 @@ body.manual-route-transition.route-page-visible > #app {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: #20D2E2;
+  background: #1DB8DA;
   color: var(--ink);
   white-space: nowrap;
   pointer-events: none;
@@ -213,7 +213,7 @@ body.manual-route-transition.route-page-visible > #app {
   top: 50%;
   height: 2px;
   border-radius: 999px;
-  background: #20D2E2;
+  background: #1DB8DA;
   content: "";
   opacity: 0;
   transform: translateY(-50%) scaleX(0.84);
@@ -250,7 +250,7 @@ body.manual-route-transition.route-page-visible > #app {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: #20D2E2;
+  background: #1DB8DA;
   color: var(--ink);
   white-space: nowrap;
   pointer-events: none;
@@ -278,7 +278,7 @@ body.manual-route-transition.route-page-visible > #app {
   z-index: 300;
   display: block;
   border-radius: 999px;
-  background: #20D2E2;
+  background: #1DB8DA;
   pointer-events: none;
   transform: translate3d(var(--route-return-x), 0, 0);
   transform-origin: right center;
@@ -345,7 +345,7 @@ body.manual-route-transition .back-link-label { opacity: 0 !important; }
   width: 100%;
   height: 2px;
   border-radius: 999px;
-  background: #20D2E2;
+  background: #1DB8DA;
   pointer-events: none;
 }
 
@@ -711,7 +711,7 @@ body[data-view="project"] .back-link-bg {
   z-index: -1;
   inset: 0;
   border-radius: inherit;
-  background: #20D2E2;
+  background: #1DB8DA;
   pointer-events: none;
 }
 
