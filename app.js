@@ -137,7 +137,6 @@ function prepareManualRouteTransition(source, targetSelector) {
   if (targetSelector === "projects") {
     const lineWidth = Math.max(sourceRect.width, window.innerWidth - sourceRect.left + 2);
     morph.classList.add("blue-route-morph--line");
-    morph.innerHTML = '<span class="route-pill-text">← Projects</span>';
     Object.assign(morph.style, {
       top: `${sourceRect.top}px`,
       left: `${sourceRect.left}px`,
@@ -146,9 +145,6 @@ function prepareManualRouteTransition(source, targetSelector) {
     });
     morph.style.setProperty("--route-line-start-scale", String(sourceRect.width / lineWidth));
   } else {
-    // Store the brand-line position so the pill knows where to return
-    const brandLine = brand.querySelector(".brand-line");
-    const brandLineRect = brandLine?.getBoundingClientRect() || sourceRect;
     morph.classList.add("blue-route-project-pill");
     morph.innerHTML = "<span>← Projects</span>";
     Object.assign(morph.style, {
@@ -157,10 +153,8 @@ function prepareManualRouteTransition(source, targetSelector) {
       width: `${sourceRect.width}px`,
       height: `${sourceRect.height}px`,
     });
-    morph.style.setProperty("--route-brand-left", `${brandLineRect.left}px`);
-    morph.style.setProperty("--route-brand-width", `${brandLineRect.width}px`);
-    morph.style.setProperty("--route-line-top", `${brandLineRect.top}px`);
-    morph.style.setProperty("--route-line-height", `${Math.max(2, brandLineRect.height)}px`);
+    morph.style.setProperty("--route-to-edge-x", `${window.innerWidth - sourceRect.left + sourceRect.width + 24}px`);
+    morph.style.setProperty("--route-line-scale-y", String(2 / Math.max(2, sourceRect.height)));
   }
   document.body.append(frozen, morph);
   document.body.classList.add("manual-route-transition");
@@ -182,10 +176,25 @@ function playManualRouteTransition() {
     return;
   }
 
+  let arrival = null;
   let returnLine = null;
 
-  if (!isHomeToProject) {
-    // Freeze brand scale so returnLine matches the natural brand-line width
+  if (isHomeToProject) {
+    // Create arrival pill at the back-link position — starts thin, inflates in place
+    const targetRect = target.getBoundingClientRect();
+    arrival = document.createElement("span");
+    arrival.className = "blue-route-arrival";
+    arrival.innerHTML = "<span>← Projects</span>";
+    Object.assign(arrival.style, {
+      top: `${targetRect.top}px`,
+      left: `${targetRect.left}px`,
+      width: `${targetRect.width}px`,
+      height: `${targetRect.height}px`,
+    });
+    arrival.style.setProperty("--route-line-scale-y", String(2 / Math.max(2, targetRect.height)));
+    document.body.append(arrival);
+  } else {
+    // Freeze brand scale so returnLine matches natural brand-line width
     const brandTransition = brand.style.transition;
     const brandTransform = brand.style.transform;
     brand.style.transition = "none";
@@ -207,46 +216,34 @@ function playManualRouteTransition() {
     document.body.append(returnLine);
   }
 
-  if (isHomeToProject) {
-    // Store the pill target position from the actual back-link element
-    const targetRect = target.getBoundingClientRect();
-    active.morph.style.setProperty("--route-pill-target-height", `${targetRect.height}px`);
-    active.morph.style.setProperty("--route-pill-target-top", `${targetRect.top}px`);
-    active.morph.style.setProperty("--route-pill-target-left", `${targetRect.left}px`);
-    active.morph.style.setProperty("--route-pill-target-width", `${targetRect.width}px`);
-  }
-
   requestAnimationFrame(() => requestAnimationFrame(() => {
     window.setTimeout(() => active.frozen.classList.add("is-leaving"), 180);
     window.setTimeout(() => document.body.classList.add("route-page-visible"), 520);
 
     if (isHomeToProject) {
-      // Home → Project: line extends → blooms into pill
+      // Line extends right → then exits right while pill inflates at target
       active.morph.classList.add("is-extending");
-      window.setTimeout(() => {
-        active.morph.classList.add("is-inflating");
-      }, 300);
+      window.setTimeout(() => active.morph.classList.add("is-exiting"), 300);
+      window.setTimeout(() => arrival?.classList.add("is-arriving"), 350);
     } else {
-      // Project → Home: pill deflates → line retracts left
+      // Pill deflates in place → slides right while return-line comes in
       active.morph.classList.add("is-deflating");
-      window.setTimeout(() => {
-        active.morph.classList.add("is-returning-left");
-      }, 260);
-      window.setTimeout(() => {
-        returnLine?.classList.add("is-returning-in");
-      }, 520);
+      window.setTimeout(() => active.morph.classList.add("is-returning-right"), 240);
+      window.setTimeout(() => returnLine?.classList.add("is-returning-in"), 460);
       window.setTimeout(() => {
         document.body.classList.add("route-line-handoff");
-      }, 820);
+        returnLine?.classList.add("is-handing-off");
+      }, 780);
     }
 
     window.setTimeout(() => {
       active.frozen.remove();
       active.morph.remove();
+      arrival?.remove();
       returnLine?.remove();
       if (manualRouteTransition === active) manualRouteTransition = null;
       document.body.classList.remove("manual-route-transition", "project-home-return", "route-page-visible", "route-line-handoff");
-    }, 1100);
+    }, 1000);
   }));
 }
 
