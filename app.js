@@ -61,7 +61,7 @@ const wheelThreshold = 36;
 const wheelGestureResetMs = 180;
 const wheelStepGapMs = 160;
 const homeAutoplayDelay = 8000;
-const lightboxClickDelay = 200;
+const lightboxClickDelay = 400;
 
 const fluidCursor = document.createElement("div");
 fluidCursor.className = "fluid-cursor";
@@ -217,23 +217,23 @@ function playManualRouteTransition() {
   }
 
   requestAnimationFrame(() => requestAnimationFrame(() => {
-    window.setTimeout(() => active.frozen.classList.add("is-leaving"), 180);
-    window.setTimeout(() => document.body.classList.add("route-page-visible"), 520);
+    window.setTimeout(() => active.frozen.classList.add("is-leaving"), 200);
+    window.setTimeout(() => document.body.classList.add("route-page-visible"), 560);
 
     if (isHomeToProject) {
-      // Line extends right → then exits right while pill inflates at target
+      // Home → Project: line extends → exits while pill blooms at target
       active.morph.classList.add("is-extending");
-      window.setTimeout(() => active.morph.classList.add("is-exiting"), 300);
-      window.setTimeout(() => arrival?.classList.add("is-arriving"), 350);
+      window.setTimeout(() => active.morph.classList.add("is-exiting"), 360);
+      window.setTimeout(() => arrival?.classList.add("is-arriving"), 400);
     } else {
-      // Pill deflates in place → slides right while return-line comes in
+      // Project → Home: pill deflates → line slides right, return-line comes in
       active.morph.classList.add("is-deflating");
-      window.setTimeout(() => active.morph.classList.add("is-returning-right"), 240);
-      window.setTimeout(() => returnLine?.classList.add("is-returning-in"), 460);
+      window.setTimeout(() => active.morph.classList.add("is-returning-right"), 320);
+      window.setTimeout(() => returnLine?.classList.add("is-returning-in"), 240);
       window.setTimeout(() => {
         document.body.classList.add("route-line-handoff");
         returnLine?.classList.add("is-handing-off");
-      }, 780);
+      }, 760);
     }
 
     window.setTimeout(() => {
@@ -243,7 +243,7 @@ function playManualRouteTransition() {
       returnLine?.remove();
       if (manualRouteTransition === active) manualRouteTransition = null;
       document.body.classList.remove("manual-route-transition", "project-home-return", "route-page-visible", "route-line-handoff");
-    }, 1000);
+    }, 1200);
   }));
 }
 
@@ -438,23 +438,24 @@ function registerLightboxPrimaryDown(event) {
       && Math.hypot(event.clientX - lightboxLastTap.x, event.clientY - lightboxLastTap.y) < 42
     ) {
       clearPendingLightboxClick();
-      lightboxSuppressPagingUntil = now + 560;
+      lightboxSuppressPagingUntil = now + 600;
     }
     return;
   }
   if (event.pointerType !== "mouse" || event.button !== 0) return;
   const now = performance.now();
+  // Double-click detection: second press within 650ms and 46px of first
   const isSecondPress = Boolean(
     lightboxLastMouseDown
-    && now - lightboxLastMouseDown.time < 620
+    && now - lightboxLastMouseDown.time < 650
     && Math.hypot(
       event.clientX - lightboxLastMouseDown.x,
       event.clientY - lightboxLastMouseDown.y,
-    ) < 42
+    ) < 46
   );
   if (isSecondPress) {
     clearPendingLightboxClick();
-    lightboxSuppressPagingUntil = now + 520;
+    lightboxSuppressPagingUntil = now + 650;
     lightboxLastMouseDown = null;
   } else {
     lightboxLastMouseDown = { time: now, x: event.clientX, y: event.clientY };
