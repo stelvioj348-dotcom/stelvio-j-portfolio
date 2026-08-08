@@ -1311,7 +1311,7 @@ body.lightbox-open { overflow: hidden !important; }
 .viewer--home::before,
 .viewer--home::after {
   position: absolute;
-  z-index: 12;
+  z-index: 14;
   top: 50%;
   width: 13px;
   height: 13px;
@@ -1327,7 +1327,7 @@ body.lightbox-open { overflow: hidden !important; }
 }
 
 .viewer--home::after {
-  right: calc(100% / 3.8 + 14px);
+  right: 10px;
   transform: translateY(-50%);
 }
 
@@ -1385,7 +1385,6 @@ body.lightbox-open { overflow: hidden !important; }
   .city-nav { gap: 14px; margin: 0 22px; }
   .viewer-stage { grid-template-columns: minmax(0, 2.5fr) minmax(230px, 1fr); }
   .viewer-arrow--next { right: calc(100% / 3.5); }
-  .viewer--home::after { right: calc(100% / 3.5 + 14px); }
   .viewer-caption h1 { font-size: 25px; }
   .archive-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 19px 14px; }
   .archive-card { grid-column: auto; }
