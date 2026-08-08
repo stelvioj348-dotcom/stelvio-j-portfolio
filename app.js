@@ -856,6 +856,8 @@ function landingStageMarkup(index) {
           <dd>${indexedMetaLinks("camera", project.camera)}</dd>
           <dt>Medium</dt>
           <dd>${indexedMetaLinks("medium", project.medium)}</dd>
+          <dt>Focal Length</dt>
+          <dd>${escapeHtml(project.focalLength)}</dd>
         </dl>
         <p class="project-description">${escapeHtml(project.description)}</p>
         <div class="viewer-caption-footer">
@@ -1421,6 +1423,8 @@ function renderProject(slug) {
             <dd>${indexedMetaLinks("camera", project.camera)}</dd>
             <dt>Medium</dt>
             <dd>${indexedMetaLinks("medium", project.medium)}</dd>
+            <dt>Focal Length</dt>
+            <dd>${escapeHtml(project.focalLength)}</dd>
           </dl>
           <p class="project-description">${escapeHtml(project.description)}</p>
           <div class="viewer-caption-footer">
@@ -2159,6 +2163,7 @@ Promise.all([
       })),
       description: essays[project.slug] || project.description,
       camera: equipment[project.slug]?.camera || "Not specified",
+      focalLength: equipment[project.slug]?.focalLength || "Not specified",
       medium: detectMedium(equipment[project.slug]?.camera),
     }));
     publishedPreferences = preferences;
