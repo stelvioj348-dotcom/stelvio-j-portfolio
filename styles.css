@@ -1337,6 +1337,7 @@ body.lightbox-open { overflow: hidden !important; }
 
 .viewer--home .viewer-caption {
   z-index: 11;
+  padding-left: 0;
 }
 
 .viewer--home .viewer-caption a,
