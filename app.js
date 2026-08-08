@@ -61,7 +61,7 @@ const wheelThreshold = 36;
 const wheelGestureResetMs = 180;
 const wheelStepGapMs = 160;
 const homeAutoplayDelay = 8000;
-const lightboxClickDelay = 520;
+const lightboxClickDelay = 200;
 
 const fluidCursor = document.createElement("div");
 fluidCursor.className = "fluid-cursor";
