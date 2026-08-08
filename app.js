@@ -321,13 +321,11 @@ window.addEventListener("pointermove", (event) => {
 
 window.addEventListener("pointerdown", (event) => {
   if (finePointerQuery.matches && event.pointerType !== "touch") fluidCursor.classList.add("is-pressed");
-  // Forward clicks to magnet control when cursor is wrapped around it
   if (
     cursorMagnetControl
     && finePointerQuery.matches
     && event.pointerType !== "touch"
     && !cursorMagnetControl.contains(event.target)
-    && cursorMagnetControl.closest("#city-nav")  // only nav controls; avoid blank-space reopen
   ) {
     const magnetRect = cursorMagnetControl.getBoundingClientRect();
     const dist = Math.hypot(
