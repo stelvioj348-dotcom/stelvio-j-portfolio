@@ -349,8 +349,8 @@ body.manual-route-transition .back-link-label { opacity: 0 !important; }
   pointer-events: none;
 }
 
-body[data-view="project"] .brand-line { opacity: 0; }
-body:not([data-view="project"]) .brand-line { view-transition-name: blue-navigation; }
+body:not([data-view="landing"]) .brand-line { opacity: 0; }
+body[data-view="landing"] .brand-line { view-transition-name: blue-navigation; }
 body[data-view="project"] .back-link-bg { view-transition-name: blue-navigation; }
 
 .profile-nav {
