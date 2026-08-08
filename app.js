@@ -220,18 +220,18 @@ function playManualRouteTransition() {
 
     if (active.targetSelector === "projects") {
       active.morph.classList.add("is-extending");
-      window.setTimeout(() => active.morph.classList.add("is-exiting"), 280);
-      window.setTimeout(() => arrival?.classList.add("is-arriving"), 620);
-      window.setTimeout(() => arrival?.classList.add("is-fusing"), 1020);
+      window.setTimeout(() => active.morph.classList.add("is-exiting"), 340);
+      window.setTimeout(() => arrival?.classList.add("is-arriving"), 540);
+      window.setTimeout(() => arrival?.classList.add("is-fusing"), 900);
     } else {
       active.morph.classList.add("is-unfusing");
-      window.setTimeout(() => active.morph.classList.add("is-returning-right"), 240);
-      window.setTimeout(() => returnLine?.classList.add("is-returning-in"), 620);
-      window.setTimeout(() => returnLine?.classList.add("is-returning-home"), 940);
+      window.setTimeout(() => active.morph.classList.add("is-returning-right"), 200);
+      window.setTimeout(() => returnLine?.classList.add("is-returning-in"), 560);
+      window.setTimeout(() => returnLine?.classList.add("is-returning-home"), 900);
       window.setTimeout(() => {
         document.body.classList.add("route-line-handoff");
         returnLine?.classList.add("is-handing-off");
-      }, 1210);
+      }, 1150);
     }
 
     window.setTimeout(() => {

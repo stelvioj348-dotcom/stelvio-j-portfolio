@@ -187,22 +187,25 @@ body.manual-route-transition.route-page-visible > #app {
 .blue-route-morph--line {
   transform: scaleX(var(--route-line-start-scale, 0.1));
   transform-origin: left center;
-  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 360ms cubic-bezier(0.25, 1, 0.35, 1);
 }
 
-.blue-route-morph--line.is-extending { transform: scaleX(1); }
+.blue-route-morph--line.is-extending {
+  transform: scaleX(1);
+  transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
 
 .blue-route-morph--line.is-exiting {
   transform: scaleX(0);
   transform-origin: right center;
-  transition: transform 280ms cubic-bezier(0.7, 0, 0.84, 0);
+  transition: transform 300ms cubic-bezier(0.55, 0, 0.65, 0);
 }
 
 .blue-route-project-pill {
   transform: translate3d(0, 0, 0) scaleY(1);
   transform-origin: right center;
   transition:
-    transform 360ms cubic-bezier(0.7, 0, 0.84, 0),
+    transform 380ms cubic-bezier(0.34, 1.56, 0.64, 1),
     background-color 220ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -219,19 +222,20 @@ body.manual-route-transition.route-page-visible > #app {
   transform: translateY(-50%) scaleX(0.84);
   transform-origin: right center;
   transition:
-    opacity 180ms ease,
-    transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 180ms cubic-bezier(0.25, 1, 0.35, 1),
+    transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .blue-route-project-pill span,
 .blue-route-arrival span {
   position: relative;
   z-index: 1;
-  transition: opacity 180ms ease;
+  transition: opacity 180ms cubic-bezier(0.25, 1, 0.35, 1);
 }
 
 .blue-route-project-pill.is-unfusing {
   transform: translate3d(0, 0, 0) scaleY(var(--route-line-scale-y, 1));
+  transition: transform 280ms cubic-bezier(0.4, 0, 0.6, 1);
 }
 
 .blue-route-project-pill.is-unfusing span { opacity: 0; }
@@ -240,7 +244,7 @@ body.manual-route-transition.route-page-visible > #app {
 
 .blue-route-project-pill.is-returning-right {
   transform: translate3d(var(--route-to-edge-x), 0, 0) scaleY(var(--route-line-scale-y, 1));
-  transition: transform 360ms cubic-bezier(0.7, 0, 0.84, 0);
+  transition: transform 400ms cubic-bezier(0.25, 1, 0.35, 1);
 }
 
 .blue-route-arrival {
@@ -256,7 +260,7 @@ body.manual-route-transition.route-page-visible > #app {
   pointer-events: none;
   transform: translate3d(var(--route-arrival-x), 46px, 0) scaleY(var(--route-line-scale-y));
   transform-origin: right center;
-  transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 440ms cubic-bezier(0.34, 1.56, 0.64, 1);
   will-change: transform;
 }
 
@@ -268,7 +272,7 @@ body.manual-route-transition.route-page-visible > #app {
 
 .blue-route-arrival.is-fusing {
   transform: translate3d(0, 0, 0) scaleY(1);
-  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .blue-route-arrival.is-fusing span { opacity: 1; }
@@ -284,8 +288,8 @@ body.manual-route-transition.route-page-visible > #app {
   transform-origin: right center;
   opacity: 1;
   transition:
-    transform 360ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 170ms ease;
+    transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 180ms ease;
   will-change: transform;
 }
 
