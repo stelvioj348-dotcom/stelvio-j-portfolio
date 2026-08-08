@@ -192,13 +192,41 @@ body.manual-route-transition.route-page-visible > #app {
 
 .blue-route-morph--line.is-extending {
   transform: scaleX(1);
-  transition: transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 440ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.blue-route-morph--line.is-exiting {
-  transform: scaleX(0);
-  transform-origin: right center;
-  transition: transform 300ms cubic-bezier(0.55, 0, 0.65, 0);
+.blue-route-morph--line.is-inflating {
+  height: var(--route-pill-target-height, 28px) !important;
+  top: var(--route-pill-target-top, 0px) !important;
+  left: var(--route-pill-target-left, 0px) !important;
+  width: var(--route-pill-target-width, 120px) !important;
+  transform: scaleX(1);
+  transform-origin: left center;
+  transition:
+    height 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    top 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    left 460ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 460ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.blue-route-morph--line .route-pill-text {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--ink);
+  font-size: 13px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.blue-route-morph--line.is-inflating .route-pill-text {
+  opacity: 1;
+  transition: opacity 260ms 160ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .blue-route-project-pill {
@@ -233,49 +261,33 @@ body.manual-route-transition.route-page-visible > #app {
   transition: opacity 180ms cubic-bezier(0.25, 1, 0.35, 1);
 }
 
-.blue-route-project-pill.is-unfusing {
-  transform: translate3d(0, 0, 0) scaleY(var(--route-line-scale-y, 1));
-  transition: transform 280ms cubic-bezier(0.4, 0, 0.6, 1);
+.blue-route-project-pill.is-deflating {
+  height: var(--route-line-height, 2px) !important;
+  top: var(--route-line-top, 0px) !important;
+  transform: translate3d(0, 0, 0) scaleY(1);
+  transition:
+    height 320ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    top 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.blue-route-project-pill.is-unfusing span { opacity: 0; }
+.blue-route-project-pill.is-deflating span { opacity: 0; }
+.blue-route-project-pill.is-deflating::after { opacity: 0; }
 
-.blue-route-project-pill.is-unfusing::after { opacity: 0; }
-
-.blue-route-project-pill.is-returning-right {
-  transform: translate3d(var(--route-to-edge-x), 0, 0) scaleY(var(--route-line-scale-y, 1));
-  transition: transform 400ms cubic-bezier(0.25, 1, 0.35, 1);
+.blue-route-project-pill.is-returning-left {
+  left: var(--route-brand-left, 32px) !important;
+  width: var(--route-brand-width, 60px) !important;
+  height: var(--route-line-height, 2px) !important;
+  top: var(--route-line-top, 0px) !important;
+  transform: translate3d(0, 0, 0) scaleY(1);
+  transition:
+    left 440ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 440ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .blue-route-arrival {
-  position: fixed;
-  z-index: 300;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: #1DB8DA;
-  color: var(--ink);
-  white-space: nowrap;
-  pointer-events: none;
-  transform: translate3d(var(--route-arrival-x), 46px, 0) scaleY(var(--route-line-scale-y));
-  transform-origin: right center;
-  transition: transform 440ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  will-change: transform;
+  /* arrival is now unused — morph-line handles the full morph */
+  display: none;
 }
-
-.blue-route-arrival span { opacity: 0; }
-
-.blue-route-arrival.is-arriving {
-  transform: translate3d(0, 0, 0) scaleY(var(--route-line-scale-y));
-}
-
-.blue-route-arrival.is-fusing {
-  transform: translate3d(0, 0, 0) scaleY(1);
-  transition: transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.blue-route-arrival.is-fusing span { opacity: 1; }
 
 .blue-route-return-line {
   position: fixed;
@@ -284,22 +296,23 @@ body.manual-route-transition.route-page-visible > #app {
   border-radius: 999px;
   background: #1DB8DA;
   pointer-events: none;
+  opacity: 0;
   transform: translate3d(var(--route-return-x), 0, 0);
-  transform-origin: right center;
-  opacity: 1;
+  transform-origin: left center;
   transition:
-    transform 400ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity 180ms ease;
+    transform 440ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 200ms ease;
   will-change: transform;
 }
 
-.blue-route-return-line.is-returning-in { transform: translate3d(0, 0, 0); }
+.blue-route-return-line.is-returning-in {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
 
 .blue-route-return-line.is-returning-home {
   transform: translate3d(0, 0, 0);
 }
-
-.blue-route-return-line.is-handing-off { opacity: 0; }
 
 body.manual-route-transition.route-line-handoff .brand-line { opacity: 1 !important; }
 
